@@ -313,8 +313,9 @@ function vCheckout(){
  return '<button class="crumb" type="button" data-go="cart">‹ '+t("back")+'</button><h1>'+t("checkout")+'</h1>'
   +'<form class="panel" id="chk" novalidate><label>'+t("name")+'<input class="f" id="f-name" autocomplete="name" value="'+esc(pr.full_name||"")+'"></label>'
   +'<label>'+t("phone")+'<input class="f" id="f-phone" type="tel" inputmode="tel" autocomplete="tel" dir="ltr" placeholder="0750 000 0000" value="'+esc(pr.phone||"")+'"></label>'
-  +'<label>'+t("city")+'<input class="f" id="f-city" value="'+({en:"Erbil",ar:"أربيل",ku:"هەولێر"})[S.lang]+'"></label>'
-  +'<label>'+t("addr")+'<textarea class="f" id="f-addr" rows="3"></textarea></label>'
+  +'<label>'+t("city")+'<input class="f" id="f-city" value="'+esc(pr.addr_city||({en:"Erbil",ar:"أربيل",ku:"هەولێر"})[S.lang])+'"></label>'
+  +'<label>'+t("addr")+'<textarea class="f" id="f-addr" rows="3">'+esc(pr.addr_text||"")+'</textarea></label>'
+  +'<div><button class="btn ghost" type="button" data-act="geo">📍 '+t("geoBtn")+'</button><div class="from" id="geo-st">'+(S.geo?'✓ '+t("geoOk"):t("geoHint"))+'</div></div>'
   +'<div class="note" style="text-align:start;color:var(--ink)">'+t("cod")+'</div>'+sumHtml()
   +'<div id="err" style="color:var(--price);min-height:20px" role="alert"></div><button class="btn" type="submit"'+(S.busy?" disabled":"")+'>'+t("place")+'</button></form>';
 }
@@ -448,7 +449,7 @@ async function refreshMine(){
  if(!S.shop||S.shop.status!=="approved"){S.mine=[];S.items=[];return;}
  var a=await sb.from("products").select("*").eq("shop_id",S.shop.id).order("id",{ascending:false});
  S.mine=a.data||[];
- var b=await sb.from("order_items").select("*,orders(id,name,phone,city,address,created_at),products(name_en,name_ar,name_ku)").eq("shop_id",S.shop.id).order("id",{ascending:false});
+ var b=await sb.from("order_items").select("*,orders(id,name,phone,city,address,location_url,created_at),products(name_en,name_ar,name_ku)").eq("shop_id",S.shop.id).order("id",{ascending:false});
  S.items=b.data||[];
  var pa=await sb.from("payouts").select("*").eq("shop_id",S.shop.id).order("id",{ascending:false});S.payouts=pa.error?[]:(pa.data||[]);
  S.newCnt=countNew();}
@@ -456,7 +457,7 @@ async function loadAdmin(){
  if(!S.profile||S.profile.role!=="admin"){S.adm=null;return;}
  var a=await sb.from("shops").select("*,profiles(full_name,phone)").order("created_at",{ascending:false});
  var b=await sb.from("products").select("*,shops(name)").order("id",{ascending:false}).limit(300);
- var c=await sb.from("order_items").select("*,orders(id,name,phone,city,address,created_at),products(name_en,name_ar,name_ku),shops(name)").order("id",{ascending:false}).limit(1000);
+ var c=await sb.from("order_items").select("*,orders(id,name,phone,city,address,location_url,created_at),products(name_en,name_ar,name_ku),shops(name)").order("id",{ascending:false}).limit(1000);
  var d=await sb.from("settings").select("*").eq("key","default_commission_pct").maybeSingle();
  var bn=await sb.from("banners").select("*").order("id",{ascending:false});
  var cm=await sb.from("complaints").select("*,profiles(full_name,phone)").order("id",{ascending:false}).limit(200);
@@ -479,7 +480,7 @@ function orderCards(items){
  if(!items.length)return '<div class="panel"><div class="from">'+t("noItems")+'</div></div>';
  return groupItems(items).map(function(g){var o=g[0].orders||{};
   return '<div class="panel"><div class="sum"><b dir="ltr">#'+g[0].order_id+(g.some(function(i){return i.status==="new";})?' <span class="pill">'+t("newBadge")+'</span>':'')+'</b><span class="from">'+esc((o.created_at||"").slice(0,10))+'</span></div>'
-   +'<div>'+t("customer")+': <b>'+esc(o.name)+'</b></div><div dir="ltr" style="text-align:start">'+esc(o.phone)+'</div>'+contactBtns(o.phone)+'<div>'+esc(o.city)+' · '+esc(o.address)+'</div>'
+   +'<div>'+t("customer")+': <b>'+esc(o.name)+'</b></div><div dir="ltr" style="text-align:start">'+esc(o.phone)+'</div>'+contactBtns(o.phone)+'<div>'+esc(o.city)+' · '+esc(o.address)+'</div>'+(o.location_url?'<a class="btn ghost" href="'+esc(o.location_url)+'" target="_blank" rel="noopener">📍 '+t("mapL")+'</a>':'')
    +g.map(function(i){return '<div class="offer"><div>'+num(i.qty)+' × '+esc(i.products?L(i.products,"name"):"")+(i.shops?' <span class="from">('+esc(i.shops.name)+')</span>':'')+'<small>'+money(i.unit_price_iqd*i.qty)+'</small></div>'+stSel(i)+'</div>';}).join("")+'</div>';}).join("");}
 function mProducts(){
  var h='<form class="panel" id="pform" novalidate><b>'+t("addProduct")+'</b>'
@@ -584,6 +585,12 @@ async function doAct(el){
    await upd("banners",{active:v==="true"},"id",id);await loadAdmin();await loadPublic();keepScroll();
   }else if(a==="bdel"){
    var dr=await sb.from("banners").delete().eq("id",id);if(dr.error)throw dr.error;await loadAdmin();await loadPublic();keepScroll();
+  }else if(a==="geo"){
+   if(!navigator.geolocation){toast(t("geoFail"));return;}
+   navigator.geolocation.getCurrentPosition(function(pos){
+    S.geo="https://www.google.com/maps?q="+pos.coords.latitude.toFixed(6)+","+pos.coords.longitude.toFixed(6);
+    var g=$("geo-st");if(g)g.textContent="✓ "+t("geoOk");
+   },function(){toast(t("geoFail"));},{enableHighAccuracy:true,timeout:15000});
   }else if(a==="cancelord"){
    if(!confirm(t("cancelAsk")))return;
    var cr=await sb.rpc("cancel_order",{p_id:parseInt(id,10)});if(cr.error)throw cr.error;
@@ -757,6 +764,12 @@ var T7={
  ar:{newBadge:"جديد",newOrderToast:"وصل طلب جديد",callL:"اتصال",waL:"واتساب",cancelOrder:"إلغاء الطلب",cancelAsk:"هل تريد إلغاء هذا الطلب؟",cancelledOk:"تم إلغاء الطلب",cancelLate:"لم يعد بالإمكان إلغاء هذا الطلب. يرجى التواصل مع الدعم.",blockedMsg:"حسابك محظور. يرجى التواصل مع الدعم.",tooMany:"لديك طلبات مفتوحة كثيرة. يرجى الانتظار حتى يتم تسليمها.",customersT:"العملاء",block:"حظر",unblock:"إلغاء الحظر",blockedL:"محظور",maxOpen:"الحد الأقصى للطلبات المفتوحة لكل عميل",settleT:"التسويات",paidOut:"المدفوع",balanceL:"المستحق للدفع",recordPay:"تسجيل دفعة",amountL:"المبلغ (د.ع)",noteL:"ملاحظة (اختياري)",csv:"تصدير CSV",payHist:"سجل الدفعات",allShops:"كل المتاجر (CSV)"},
  ku:{newBadge:"نوێ",newOrderToast:"داواکارییەکی نوێ گەیشت",callL:"پەیوەندی",waL:"واتساپ",cancelOrder:"هەڵوەشاندنەوەی داواکاری",cancelAsk:"دەتەوێت ئەم داواکارییە هەڵبوەشێنیتەوە؟",cancelledOk:"داواکارییەکە هەڵوەشێنرایەوە",cancelLate:"چیتر ناتوانرێت ئەم داواکارییە هەڵبوەشێنرێتەوە. تکایە پەیوەندی بە پشتگیری بکە.",blockedMsg:"هەژمارەکەت بلۆککراوە. تکایە پەیوەندی بە پشتگیری بکە.",tooMany:"داواکاری کراوەی زۆرت هەیە. تکایە چاوەڕێ بکە تا دەگەیەندرێن.",customersT:"کڕیارەکان",block:"بلۆککردن",unblock:"لابردنی بلۆک",blockedL:"بلۆککراو",maxOpen:"زۆرترین داواکاری کراوە بۆ هەر کڕیارێک",settleT:"پارەدانەوەکان",paidOut:"دراوە",balanceL:"ماوە بۆ پێدان",recordPay:"تۆمارکردنی پارەدان",amountL:"بڕ (د.ع)",noteL:"تێبینی (ئارەزوومەندانە)",csv:"هەناردەکردنی CSV",payHist:"مێژووی پارەدان",allShops:"هەموو فرۆشگاکان (CSV)"}
 };
+var T8={
+ en:{geoBtn:"Use my current location",geoOk:"Location attached",geoFail:"Could not get your location. Allow location access for this site in Safari settings.",geoHint:"Optional: helps the courier find you.",mapL:"Open map"},
+ ar:{geoBtn:"استخدام موقعي الحالي",geoOk:"تم إرفاق الموقع",geoFail:"تعذر تحديد موقعك. اسمح للموقع بالوصول إلى الموقع في إعدادات Safari.",geoHint:"اختياري: يساعد المندوب على الوصول إليك.",mapL:"فتح الخريطة"},
+ ku:{geoBtn:"شوێنی ئێستام بەکاربهێنە",geoOk:"شوێن زیادکرا",geoFail:"نەتوانرا شوێنەکەت بدۆزرێتەوە. لە ڕێکخستنەکانی Safari ڕێگە بدە بە شوێن.",geoHint:"ئارەزوومەندانە: یارمەتی کوریەر دەدات تۆ بدۆزێتەوە.",mapL:"کردنەوەی نەخشە"}
+};
+Object.keys(T8).forEach(function(k){Object.keys(T8[k]).forEach(function(x){T[k][x]=T8[k][x];});});
 Object.keys(T7).forEach(function(k){Object.keys(T7[k]).forEach(function(x){T[k][x]=T7[k][x];});});
 
 function waNum(p){var d=String(p||"").replace(/[^\d]/g,"");if(d.indexOf("00")===0)d=d.slice(2);else if(d.charAt(0)==="0")d="964"+d.slice(1);return d;}
@@ -863,11 +876,11 @@ document.addEventListener("submit",async function(e){
   var v=["f-name","f-phone","f-city","f-addr"].map(function(i){return $(i).value.trim();});
   if(v.some(function(x){return !x;})){$("err").textContent=t("fillAll");return;}
   S.busy=true;
-  var r2=await sb.rpc("place_order",{p_name:v[0],p_phone:v[1],p_city:v[2],p_address:v[3]});
+  var r2=await sb.rpc("place_order",{p_name:v[0],p_phone:v[1],p_city:v[2],p_address:v[3],p_loc:S.geo||null});
   S.busy=false;
   if(r2.error){render();var er=$("err");if(er)er.textContent=errText(r2.error);return;}
   var o=await sb.from("orders").select("*,order_items(*)").eq("id",r2.data).single();
-  S.order=o.data;S.cart=[];
+  S.order=o.data;S.cart=[];S.geo=null;try{await loadUser();}catch(e5){}
   await loadPublic();
   go("done");
  }
