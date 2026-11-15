@@ -372,6 +372,7 @@ function vAccount(){
    +(reg?'<label>'+t("name")+'<input class="f" id="a-name" autocomplete="name"></label><label>'+t("phone")+'<input class="f" id="a-phone" type="tel" inputmode="tel" dir="ltr" autocomplete="tel"></label>':'')
    +'<label>'+t("email")+'<input class="f" id="a-email" type="email" dir="ltr" autocomplete="email"></label>'
    +'<label>'+t("password")+'<input class="f" id="a-pass" type="password" dir="ltr" autocomplete="'+(reg?"new-password":"current-password")+'"><span>'+(reg?t("pwHint"):"")+'</span></label>'
+   +(reg?'<label style="flex-direction:row;align-items:flex-start;gap:8px"><input type="checkbox" id="a-terms"><span>'+t("acceptPre")+' <a href="#terms" target="_blank" rel="noopener">'+t("termsT")+'</a> '+t("andL")+' <a href="#privacy" target="_blank" rel="noopener">'+t("privacyT")+'</a></span></label>':'')
    +'<div id="aerr" style="color:var(--price);min-height:20px" role="alert">'+esc(S.authErr)+'</div>'
    +'<button class="btn" type="submit"'+(S.busy?" disabled":"")+'>'+(reg?t("register"):t("login"))+'</button>'+(reg?'':'<button class="crumb" type="button" data-act="forgot">'+t("forgot")+'</button>')+'</form>';
  }
@@ -410,7 +411,8 @@ function render(){
  else if((m=r.match(/^shop-([0-9a-f-]{36})$/))){h=vShopPage(m[1]);active="cats";}
  else if((m=r.match(/^rate-([0-9a-f-]{36})$/))){h=vRate(m[1]);active="cats";}
  else if(r==="support"){h=vSupport();active="account";}
- else if(r==="account"){h=vAccount();active="account";}
+ else if(r==="terms"||r==="privacy"){h=vLegal(r);active="account";}
+ else if(r==="account"){h=vAccount()+legalLinks();active="account";}
  else{h=vHome();}
  $("main").innerHTML=h;
  S.active=active;drawNav();
@@ -420,7 +422,7 @@ function render(){
 async function onRoute(){
  if(route()==="account"&&S.user){await loadOrders();try{await refreshShop();await refreshMine();await loadAdmin();}catch(e){}}
  var rr=route(),mm=rr.match(/^(shop|rate)-([0-9a-f-]{36})$/);
- if(mm){try{var sv=await sb.from("shops").select("id,name,logo_url").eq("id",mm[2]).maybeSingle();S.viewShop=sv.data;if(S.user&&!S.orders.length)await loadOrders();if(mm[1]==="rate"){var ex=S.reviews.filter(function(x){return x.shop_id===mm[2]&&S.user&&x.user_id===S.user.id;})[0];S.rate={shopId:mm[2],rating:ex?ex.rating:0,comment:ex&&ex.comment?ex.comment:""};}}catch(e){}}
+ if(mm){try{var sv=await sb.from("shops").select("id,name,logo_url,address").eq("id",mm[2]).maybeSingle();S.viewShop=sv.data;if(S.user&&!S.orders.length)await loadOrders();if(mm[1]==="rate"){var ex=S.reviews.filter(function(x){return x.shop_id===mm[2]&&S.user&&x.user_id===S.user.id;})[0];S.rate={shopId:mm[2],rating:ex?ex.rating:0,comment:ex&&ex.comment?ex.comment:""};}}catch(e){}}
  if(rr==="support"&&S.user){try{await loadOrders();await loadComplaints();}catch(e){}}
  render();
 }
@@ -479,7 +481,8 @@ async function upd(table,vals,col,val){
 async function refreshShop(){
  if(!S.user)return;
  var s=await sb.from("shops").select("*").eq("owner_id",S.user.id).maybeSingle();
- S.shop=s.data||null;}
+ S.shop=s.data||null;S.shopPhone="";
+ if(S.shop){var sc=await sb.from("shop_contacts").select("phone").eq("shop_id",S.shop.id).maybeSingle();S.shopPhone=sc.data?sc.data.phone:"";}}
 async function refreshMine(){
  if(!S.shop||S.shop.status!=="approved"){S.mine=[];S.items=[];return;}
  var a=await sb.from("products").select("*").eq("shop_id",S.shop.id).order("id",{ascending:false});
@@ -499,7 +502,8 @@ async function loadAdmin(){
  var pf=await sb.from("profiles").select("id,full_name,phone,role,blocked,created_at").order("created_at",{ascending:false}).limit(300);
  var po=await sb.from("payouts").select("*").order("id",{ascending:false}).limit(1000);
  var mx=await sb.from("settings").select("*").eq("key","max_open_orders").maybeSingle();
- S.adm={cust:pf.error?[]:(pf.data||[]),pay:po.error?[]:(po.data||[]),maxo:mx.data?mx.data.value:"3",shops:a.data||[],prods:b.data||[],items:c.data||[],def:d.data?d.data.value:"5",comp:(cm.data||[]),banners:(bn.data||[])};}
+ S.adm={cust:pf.error?[]:(pf.data||[]),pay:po.error?[]:(po.data||[]),maxo:mx.data?mx.data.value:"3",shops:a.data||[],prods:b.data||[],items:c.data||[],def:d.data?d.data.value:"5",comp:(cm.data||[]),banners:(bn.data||[])};
+ var sc2=await sb.from("shop_contacts").select("*");S.adm.sphone={};(sc2.data||[]).forEach(function(x){S.adm.sphone[x.shop_id]=x.phone;});}
 function groupItems(items){var g={},ord=[];items.forEach(function(i){var k=i.order_id;if(!g[k]){g[k]=[];ord.push(k);}g[k].push(i);});return ord.map(function(k){return g[k];});}
 function stSel(it){
  var cur=STATUS.indexOf(it.status);
@@ -518,6 +522,7 @@ function orderCards(items){
    +'<div>'+t("customer")+': <b>'+esc(o.name)+'</b></div><div dir="ltr" style="text-align:start">'+esc(o.phone)+'</div>'+contactBtns(o.phone)+'<div>'+esc(o.city)+' · '+esc(o.address)+'</div>'+(o.location_url?'<a class="btn ghost" href="'+esc(o.location_url)+'" target="_blank" rel="noopener">📍 '+t("mapL")+'</a>':'')
    +g.map(function(i){return '<div class="offer"><div>'+num(i.qty)+' × '+esc(i.products?L(i.products,"name"):"")+szTag(i)+(i.shops?' <span class="from">('+esc(i.shops.name)+')</span>':'')+'<small>'+money(i.unit_price_iqd*i.qty)+'</small></div>'+stSel(i)+'</div>';}).join("")+'</div>';}).join("");}
 function mProducts(){
+ if(S.edit){var ep=S.mine.filter(function(x){return x.id===S.edit;})[0];if(ep)return editForm(ep);S.edit=null;}
  var h='<form class="panel" id="pform" novalidate><b>'+t("addProduct")+'</b>'
   +'<label>'+t("category")+'<select id="p-cat" class="f">'+leafCats().map(function(c){return '<option value="'+esc(c.id)+'">'+esc(catLabel(c))+'</option>';}).join("")+'</select></label>'+sizeBox((leafCats()[0]||{}).id)
   +'<label>'+t("pname")+' (کوردی)<input class="f" id="p-nku"></label><label>'+t("pname")+' (عربي)<input class="f" id="p-nar"></label><label>'+t("pname")+' (English)<input class="f" id="p-nen" dir="ltr"></label>'
@@ -531,16 +536,17 @@ function mProducts(){
  S.mine.forEach(function(p){
   h+='<div class="order"><div class="row">'+pic(p,"thumb")+'<div class="info"><div style="font-weight:500">'+esc(L(p,"name"))+'</div>'+(p.active?'':'<span class="pill">'+t("hidden")+'</span>')+'</div></div>'
    +'<div class="row"><label style="flex:1">'+t("price")+'<input class="f" id="e-price-'+p.id+'" type="number" inputmode="numeric" dir="ltr" value="'+p.price_iqd+'"></label><label style="flex:1">'+t("stockL")+'<input class="f" id="e-stock-'+p.id+'" type="number" inputmode="numeric" dir="ltr" value="'+p.stock+'"></label></div>'
-   +'<div class="row"><button class="btn" type="button" data-act="psave" data-id="'+p.id+'">'+t("save")+'</button><button class="btn ghost" type="button" data-act="ptoggle" data-id="'+p.id+'">'+(p.active?t("hide"):t("show"))+'</button></div></div>';});
+   +'<div class="row"><button class="btn" type="button" data-act="psave" data-id="'+p.id+'">'+t("save")+'</button><button class="btn ghost" type="button" data-act="pedit" data-id="'+p.id+'">'+t("edit")+'</button><button class="btn ghost" type="button" data-act="ptoggle" data-id="'+p.id+'">'+(p.active?t("hide"):t("show"))+'</button></div></div>';});
  return h+'</div>';}
 function vShop(){
  if(!S.user)return "";
  if(!S.shop){
-  return '<section><h2>'+t("becomeMerchant")+'</h2><form class="panel" id="shopreg" novalidate><label>'+t("shopName")+'<input class="f" id="s-name"></label><label>'+t("shopLogo")+'<input class="f" id="s-logo" type="file" accept="image/*"></label><div id="serr" style="color:var(--price);min-height:20px" role="alert"></div><button class="btn" type="submit"'+(S.busy?" disabled":"")+'>'+(S.busy?t("uploading"):t("registerShop"))+'</button></form></section>';}
+  return '<section><h2>'+t("becomeMerchant")+'</h2><form class="panel" id="shopreg" novalidate><label>'+t("shopName")+'<input class="f" id="s-name"></label><label>'+t("shopPhone")+'<input class="f" id="s-phone" type="tel" inputmode="tel" dir="ltr"></label><label>'+t("shopAddr")+'<textarea class="f" id="s-addr" rows="2"></textarea></label><label>'+t("shopLogo")+'<input class="f" id="s-logo" type="file" accept="image/*"></label><div id="serr" style="color:var(--price);min-height:20px" role="alert"></div><button class="btn" type="submit"'+(S.busy?" disabled":"")+'>'+(S.busy?t("uploading"):t("registerShop"))+'</button></form></section>';}
  var sh=S.shop,h='<section><h2>'+t("myShop")+': '+esc(sh.name)+' <span class="pill">'+esc(sLabel(sh.status))+'</span></h2>';
  if(sh.status==="pending")return h+'<div class="msg">'+t("shopPending")+'</div></section>';
  if(sh.status==="suspended")return h+'<div class="msg">'+t("shopSuspended")+'</div></section>';
  h+='<div class="row">'+logoImg(sh,48)+'<label style="flex:1">'+t("changeLogo")+'<input class="f" type="file" accept="image/*" data-cact="logo"></label></div>';
+ h+='<div class="panel"><b>'+t("shopInfo")+'</b><label>'+t("shopPhone")+'<input class="f" id="si-phone" type="tel" inputmode="tel" dir="ltr" value="'+esc(S.shopPhone||"")+'"></label><label>'+t("shopAddr")+'<textarea class="f" id="si-addr" rows="2">'+esc(sh.address||"")+'</textarea></label><button class="btn" type="button" data-act="shinfo">'+t("save")+'</button></div>';
  h+=tabs([["products","products"],["orders","shopOrders"],["earn","earnings"]],S.tab,"tab");
  if(S.tab==="orders")h+=orderCards(S.items);else if(S.tab==="earn")h+=mEarn();else h+=mProducts();
  return h+'</section>';}
@@ -549,7 +555,7 @@ function vAdmin(){
  var a=S.adm,h='<section><h2>'+t("admin")+'</h2>'+tabs([["stats","statsT"],["shops","shopsT"],["aprod","products"],["aord","shopOrders"],["cust","customersT"],["settle","settleT"],["comp","complaintsT"],["banners","bannersT"],["set","settingsT"]],S.atab,"atab");
  if(S.atab==="shops"){
   h+='<div class="panel">'+(a.shops.length?"":'<div class="from">'+t("noItems")+'</div>')+a.shops.map(function(s){var ow=s.profiles||{};
-   return '<div class="order"><div class="sum"><b>'+esc(s.name)+'</b><span class="pill">'+esc(sLabel(s.status))+'</span></div><div class="from">'+esc(ow.full_name||"")+' · <span dir="ltr">'+esc(ow.phone||"")+'</span></div>'
+   return '<div class="order"><div class="sum"><b>'+esc(s.name)+'</b><span class="pill">'+esc(sLabel(s.status))+'</span></div><div class="from">'+esc(ow.full_name||"")+' · <span dir="ltr">'+esc(ow.phone||"")+'</span></div><div class="from">'+(s.address?'📍 '+esc(s.address):'')+' <span dir="ltr">'+esc((a.sphone||{})[s.id]||"")+'</span></div>'
     +'<div class="row"><label style="flex:1">'+t("shopCommission")+'<input class="f" id="c-'+s.id+'" type="number" step="0.5" min="0" max="50" dir="ltr" placeholder="'+esc(a.def)+'" value="'+(s.commission_pct==null?"":s.commission_pct)+'"></label><button class="btn ghost" type="button" data-act="ccsave" data-id="'+s.id+'">'+t("save")+'</button></div>'
     +'<div class="row">'+(s.status!=="approved"?'<button class="btn" type="button" data-act="shst" data-id="'+s.id+'" data-v="approved">'+t("approve")+'</button>':'')+(s.status!=="suspended"?'<button class="btn ghost" type="button" data-act="shst" data-id="'+s.id+'" data-v="suspended">'+t("suspend")+'</button>':'')+'</div></div>';}).join("")+'</div>';
  }else if(S.atab==="aprod"){
@@ -565,12 +571,12 @@ function vAdmin(){
  }
  return h+'</section>';}
 async function doShopReg(){
- var name=$("s-name").value.trim(),f=$("s-logo").files[0];
- if(!name){$("serr").textContent=t("fillAll");return;}
+ var name=$("s-name").value.trim(),f=$("s-logo").files[0],ph=$("s-phone").value.trim(),ad=$("s-addr").value.trim();
+ if(!name||!ph||!ad){$("serr").textContent=t("fillAll");return;}
  S.busy=true;render();
  try{
   var url=null;if(f)url=await uploadImg(f,300);
-  var r=await sb.rpc("register_shop",{p_name:name,p_logo:url});if(r.error)throw r.error;
+  var r=await sb.rpc("register_shop",{p_name:name,p_logo:url,p_address:ad,p_phone:ph});if(r.error)throw r.error;
   await refreshShop();S.tab="products";
  }catch(e){S.busy=false;render();var er=$("serr");if(er)er.textContent=errText(e);return;}
  S.busy=false;await refreshMine();render();}
@@ -597,6 +603,8 @@ async function doAct(el){
  if(a==="star"){if(S.rate){var cc=$("r-comment");if(cc)S.rate.comment=cc.value;S.rate.rating=parseInt(v,10);}keepScroll();return;}
  if(a==="atab"){S.atab=v;keepScroll();return;}
  if(a==="img"){S.pimg=S.pimg||{};S.pimg[id]=parseInt(v,10);keepScroll();return;}
+ if(a==="pedit"){S.edit=parseInt(id,10);render();return;}
+ if(a==="pcancel"){S.edit=null;render();return;}
  if(a==="size"){S.sz=S.sz||{};S.sz[id]=v;keepScroll();return;}
  try{
   if(a==="psave"){
@@ -630,6 +638,12 @@ async function doAct(el){
     S.geo="https://www.google.com/maps?q="+pos.coords.latitude.toFixed(6)+","+pos.coords.longitude.toFixed(6);
     var g=$("geo-st");if(g)g.textContent="✓ "+t("geoOk");
    },function(){toast(t("geoFail"));},{enableHighAccuracy:true,timeout:15000});
+  }else if(a==="shinfo"){
+   var sp=$("si-phone").value.trim(),sa=$("si-addr").value.trim();
+   if(!sp||!sa){toast(t("fillAll"));return;}
+   await upd("shops",{address:sa},"id",S.shop.id);
+   var sr=await sb.from("shop_contacts").upsert({shop_id:S.shop.id,phone:sp},{onConflict:"shop_id"});if(sr.error)throw sr.error;
+   await refreshShop();toast(t("saved"));keepScroll();
   }else if(a==="cancelord"){
    if(!confirm(t("cancelAsk")))return;
    var cr=await sb.rpc("cancel_order",{p_id:parseInt(id,10)});if(cr.error)throw cr.error;
@@ -683,7 +697,7 @@ function loginPrompt(){return '<div class="empty"><span>'+t("loginFirst")+'</spa
 function vShopPage(id){
  var s=S.viewShop;if(!s||s.id!==id)return '<div class="empty">'+t("loading")+'</div>';
  var r=ratingOf(id),prods=S.prods.filter(function(p){return p.shop_id===id;}),rv=S.reviews.filter(function(x){return x.shop_id===id;});
- var h='<button class="crumb" type="button" data-go="home">‹ '+t("back")+'</button><div class="row">'+logoImg(s,64)+'<div><h1>'+esc(s.name)+'</h1><div>'+(r?starStr(r.avg)+' <span class="from">'+r.avg.toFixed(1)+' ('+num(r.n)+')</span>':'<span class="from">'+t("noReviews")+'</span>')+'</div></div></div>';
+ var h='<button class="crumb" type="button" data-go="home">‹ '+t("back")+'</button><div class="row">'+logoImg(s,64)+'<div><h1>'+esc(s.name)+'</h1><div>'+(r?starStr(r.avg)+' <span class="from">'+r.avg.toFixed(1)+' ('+num(r.n)+')</span>':'<span class="from">'+t("noReviews")+'</span>')+(s.address?'<div class="from">📍 '+esc(s.address)+'</div>':'')+'</div></div></div>';
  if(canRate(id))h+='<button class="btn" type="button" data-go="rate-'+id+'">★ '+t("rateSeller")+'</button>';
  h+='<section><h2>'+t("shopProducts")+'</h2>'+(prods.length?'<div class="grid">'+prods.map(card).join("")+'</div>':'<div class="empty">'+t("noProducts")+'</div>')+'</section>';
  h+='<section><h2>'+t("reviews")+'</h2><div class="panel">'+(rv.length?rv.slice(0,20).map(function(x){return '<div class="order"><div>'+starStr(x.rating)+' <b>'+esc(x.author||"")+'</b> <span class="from">'+esc((x.created_at||"").slice(0,10))+'</span></div>'+(x.comment?'<div>'+esc(x.comment)+'</div>':'')+'</div>';}).join(""):'<div class="from">'+t("noReviews")+'</div>')+'</div></section>';
@@ -883,6 +897,114 @@ function exportCsv(sid){
 document.addEventListener("visibilitychange",function(){if(!document.hidden)pollNew().catch(function(){});});
 setInterval(function(){if(!document.hidden)pollNew().catch(function(){});},45000);
 
+
+var T11={
+ en:{cancel:"Cancel",edit:"Edit",editProduct:"Edit product",removeL:"Remove",termsT:"Terms of Use",privacyT:"Privacy Policy",acceptPre:"I accept the",andL:"and",mustAccept:"Please accept the terms to continue.",shopPhone:"Shop phone (not shown to customers)",shopAddr:"Shop address (shown to customers)",shopInfo:"Shop information"},
+ ar:{cancel:"إلغاء",edit:"تعديل",editProduct:"تعديل المنتج",removeL:"إزالة",termsT:"شروط الاستخدام",privacyT:"سياسة الخصوصية",acceptPre:"أوافق على",andL:"و",mustAccept:"يرجى الموافقة على الشروط للمتابعة.",shopPhone:"هاتف المتجر (لا يظهر للعملاء)",shopAddr:"عنوان المتجر (يظهر للعملاء)",shopInfo:"معلومات المتجر"},
+ ku:{cancel:"هەڵوەشاندنەوە",edit:"دەستکاری",editProduct:"دەستکاری کاڵا",removeL:"لابردن",termsT:"مەرجەکانی بەکارهێنان",privacyT:"سیاسەتی نهێنی",acceptPre:"ڕازیم بە",andL:"و",mustAccept:"تکایە مەرجەکان قبوڵ بکە بۆ بەردەوامبوون.",shopPhone:"ژمارەی تەلەفۆنی فرۆشگا (بۆ کڕیار نیشان نادرێت)",shopAddr:"ناونیشانی فرۆشگا (بۆ کڕیار نیشان دەدرێت)",shopInfo:"زانیاری فرۆشگا"}
+};
+Object.keys(T11).forEach(function(k){Object.keys(T11[k]).forEach(function(x){T[k][x]=T11[k][x];});});
+/* ---------- Legal texts (edit LEGAL values below) ---------- */
+var LEGAL={op:"",addr:"",email:"",phone:"",days:"",court:""};
+var LG={
+terms:{
+en:{intro:"These terms apply to everyone who uses KRP Bazar, operated by [OPERATOR NAME], [ADDRESS]. By creating an account or placing an order you accept them.",items:[
+["What KRP Bazar is.","KRP Bazar is an online marketplace. Independent sellers offer products, and customers buy from them. The sale contract is between the customer and the seller. KRP Bazar provides the platform, the order system and customer service."],
+["Accounts.","You must give correct name, phone number and email, and keep your password secret. You are responsible for what happens under your account. One person may hold one account."],
+["Orders and prices.","Prices are in Iraqi dinar (IQD). An order is placed when you tap Place order. A seller may confirm or reject it. Prices and stock can change until the seller confirms."],
+["Payment.","For now, you pay in cash when the order is delivered. Other payment methods may be added later."],
+["Delivery.","Orders are delivered by local couriers to the address you enter. Delivery is free for orders of 100,000 IQD or more and costs 3,000 IQD below that, unless the app shows otherwise. Check the address and phone number carefully."],
+["Returns and complaints.","You may return or report a problem with an order within [RETURN DAYS] days of delivery if the item is faulty, wrong or not as described. Contact support in the app (Account, Contact support)."],
+["Sellers.","Sellers must register a shop, which KRP Bazar may approve, refuse or suspend. Sellers must describe products truthfully, keep stock and prices current, deliver what customers ordered and handle orders promptly. Sellers pay a commission on delivered sales, currently 5 % unless agreed otherwise."],
+["Forbidden items and conduct.","It is forbidden to offer illegal, stolen, counterfeit, dangerous or regulated goods without the needed permission, to post false reviews, to abuse other users or to misuse the platform. KRP Bazar may remove products and block accounts that break these rules."],
+["Reviews.","Only customers with a delivered order may rate a seller. Reviews must be honest and respectful. KRP Bazar may remove reviews that break these terms."],
+["Liability.","KRP Bazar takes care to run the platform properly but does not guarantee it is always available or free of errors. Sellers are responsible for their products. To the extent the law allows, KRP Bazar is not liable for losses caused by sellers, couriers or events outside its control."],
+["Changes.","We may change these terms. The current version is always in the app. Continued use after a change means you accept it."],
+["Law and disputes.","These terms follow the law that applies in [COURT / CITY]. Disputes go to the courts of [COURT / CITY]."],
+["Contact.","[EMAIL], [PHONE]."]]},
+ar:{intro:"تنطبق هذه الشروط على كل من يستخدم KRP Bazar، الذي يديره [OPERATOR NAME]، [ADDRESS]. بإنشاء حساب أو إتمام طلب فأنت توافق عليها.",items:[
+["ما هو KRP Bazar.","منصة سوق إلكترونية. يعرض بائعون مستقلون منتجاتهم ويشتري العملاء منهم. عقد البيع بين العميل والبائع. توفر KRP Bazar المنصة ونظام الطلبات وخدمة العملاء."],
+["الحسابات.","يجب إدخال اسم ورقم هاتف وبريد إلكتروني صحيحة، والحفاظ على سرية كلمة المرور. أنت مسؤول عما يحدث من حسابك. لكل شخص حساب واحد."],
+["الطلبات والأسعار.","الأسعار بالدينار العراقي. يتم الطلب عند الضغط على تأكيد الطلب، وللبائع قبوله أو رفضه. قد تتغير الأسعار والمخزون حتى يؤكد البائع الطلب."],
+["الدفع.","حالياً تدفع نقداً عند استلام الطلب. قد تُضاف طرق دفع أخرى لاحقاً."],
+["التوصيل.","يتم التوصيل بواسطة شركات مناديب محلية إلى العنوان الذي تدخله. التوصيل مجاني للطلبات التي تبلغ 100,000 دينار أو أكثر، ويكلف 3,000 دينار لما دون ذلك، ما لم يظهر التطبيق خلاف ذلك. تحقق من العنوان ورقم الهاتف."],
+["الإرجاع والشكاوى.","يحق لك إرجاع الطلب أو الإبلاغ عن مشكلة خلال [RETURN DAYS] يوماً من التسليم إذا كان المنتج تالفاً أو خاطئاً أو غير مطابق للوصف. تواصل مع الدعم في التطبيق (حسابي، تواصل مع الدعم)."],
+["البائعون.","يسجّل البائع متجراً توافق عليه KRP Bazar أو ترفضه أو توقفه. يلتزم البائع بوصف المنتجات بصدق، وإبقاء المخزون والأسعار محدثة، وتسليم ما طلبه العميل، ومعالجة الطلبات بسرعة. يدفع البائع عمولة على المبيعات المسلّمة، حالياً 5% ما لم يُتفق خلافه."],
+["الممنوعات.","يمنع عرض سلع غير قانونية أو مسروقة أو مقلدة أو خطرة أو تتطلب ترخيصاً دون ترخيص، ونشر تقييمات كاذبة، وإساءة معاملة المستخدمين أو إساءة استخدام المنصة. لـ KRP Bazar حذف المنتجات وحظر الحسابات المخالفة."],
+["التقييمات.","يمكن فقط للعملاء الذين استلموا طلباً تقييم البائع. يجب أن تكون التقييمات صادقة ومحترمة، ولـ KRP Bazar حذف ما يخالف الشروط."],
+["المسؤولية.","تبذل KRP Bazar عناية في تشغيل المنصة لكنها لا تضمن عملها دائماً دون أخطاء. البائعون مسؤولون عن منتجاتهم. وبقدر ما يسمح القانون لا تتحمل KRP Bazar خسائر ناتجة عن البائعين أو المناديب أو أمور خارج سيطرتها."],
+["التعديل.","قد نغيّر هذه الشروط، والنسخة الحالية متوفرة دائماً في التطبيق. استمرار الاستخدام بعد التعديل يعني الموافقة."],
+["القانون والنزاعات.","تخضع هذه الشروط للقانون المعمول به في [COURT / CITY]، وتحال النزاعات إلى محاكم [COURT / CITY]."],
+["التواصل.","[EMAIL]، [PHONE]."]]}},
+privacy:{
+en:{intro:"This policy explains what data KRP Bazar, operated by [OPERATOR NAME], [ADDRESS], collects and how it is used.",items:[
+["Data we collect.","Name, phone number, email address, password (stored only in protected form), delivery address, orders, favorites, cart, reviews and support messages. Sellers also provide a shop name, a logo, a shop address, a shop phone number and product photos. If you attach your location to an order, we store a map link."],
+["Why we use it.","To create your account, process and deliver orders, show order status, let customers rate sellers, answer support requests, prevent fraud and misuse, and run and improve the platform."],
+["Who sees it.","The seller of an item you order sees your name, phone number, delivery address and, if you attach it, your location so they can prepare and hand over the order. Couriers receive the same details to deliver it. Administrators of KRP Bazar can see accounts, orders and messages to run the platform. Your reviews are public together with your name. We do not sell your data."],
+["Where it is stored.","Data is stored with our hosting provider Supabase and the app is hosted on GitHub Pages. These providers process data on our behalf."],
+["How long we keep it.","We keep account and order data as long as your account exists and as long as needed for orders, complaints and legal duties. You can ask us to delete your account."],
+["Your rights.","You can ask to see, correct or delete your data. Write to [EMAIL]. We answer within a reasonable time."],
+["Security.","Passwords are stored in protected form, data travels over encrypted connections, and each user can only access the data the rules of the system allow. No system is completely safe, so please keep your password secret."],
+["Children.","KRP Bazar is not meant for children under 18 without a parent or guardian."],
+["Changes.","We may update this policy. The current version is in the app."],
+["Contact.","[EMAIL], [PHONE]."]]},
+ar:{intro:"تشرح هذه السياسة ما البيانات التي يجمعها KRP Bazar، الذي يديره [OPERATOR NAME]، [ADDRESS]، وكيف تُستخدم.",items:[
+["البيانات التي نجمعها.","الاسم ورقم الهاتف والبريد الإلكتروني وكلمة المرور (تُحفظ بشكل محمي فقط) وعنوان التوصيل والطلبات والمفضلة والسلة والتقييمات ورسائل الدعم. كما يقدم البائعون اسم المتجر والشعار وعنوان المتجر ورقم هاتفه وصور المنتجات. إذا أرفقت موقعك بطلب فنحفظ رابط الخريطة."],
+["لماذا نستخدمها.","لإنشاء حسابك، ومعالجة الطلبات وتوصيلها، وعرض حالة الطلب، ومنح العملاء حق تقييم البائعين، والرد على طلبات الدعم، ومنع الاحتيال وسوء الاستخدام، وتشغيل المنصة وتحسينها."],
+["من يراها.","يرى بائع المنتج الذي تطلبه اسمك ورقم هاتفك وعنوان التوصيل وموقعك إن أرفقته لتحضير الطلب وتسليمه. يحصل المندوب على البيانات نفسها للتوصيل. يمكن لمدراء KRP Bazar رؤية الحسابات والطلبات والرسائل لتشغيل المنصة. تظهر تقييماتك للجميع مع اسمك. لا نبيع بياناتك."],
+["أين تُخزّن.","تُخزّن البيانات لدى مزود الاستضافة Supabase، ويستضاف التطبيق على GitHub Pages. يعالج هذان المزودان البيانات نيابة عنا."],
+["مدة الاحتفاظ.","نحتفظ ببيانات الحساب والطلبات طالما بقي حسابك وبقدر الحاجة للطلبات والشكاوى والالتزامات القانونية. يمكنك طلب حذف حسابك."],
+["حقوقك.","يمكنك طلب الاطلاع على بياناتك أو تصحيحها أو حذفها عبر المراسلة على [EMAIL]. نرد خلال مدة معقولة."],
+["الأمان.","تُحفظ كلمات المرور بشكل محمي، وتنتقل البيانات عبر اتصالات مشفرة، ولا يصل كل مستخدم إلا إلى ما تسمح به قواعد النظام. لا يوجد نظام آمن تماماً، لذا حافظ على سرية كلمة مرورك."],
+["الأطفال.","لم يُصمم KRP Bazar للأطفال دون 18 سنة دون إشراف ولي الأمر."],
+["التعديل.","قد نحدّث هذه السياسة، والنسخة الحالية في التطبيق."],
+["التواصل.","[EMAIL]، [PHONE]."]]}}};
+function legalFill(x){
+ var m={"[OPERATOR NAME]":LEGAL.op,"[ADDRESS]":LEGAL.addr,"[EMAIL]":LEGAL.email,"[PHONE]":LEGAL.phone,"[RETURN DAYS]":LEGAL.days,"[COURT / CITY]":LEGAL.court};
+ Object.keys(m).forEach(function(k){if(m[k])x=x.split(k).join(m[k]);});return x;}
+function vLegal(kind){
+ var d=LG[kind][S.lang==="en"?"en":"ar"];
+ return '<button class="crumb" type="button" data-go="account">‹ '+t("back")+'</button><h1>'+t(kind==="terms"?"termsT":"privacyT")+'</h1>'
+  +'<div class="panel" dir="'+(S.lang==="en"?"ltr":"rtl")+'"><p>'+esc(legalFill(d.intro))+'</p><ol style="padding-inline-start:20px;display:flex;flex-direction:column;gap:10px">'+d.items.map(function(it){return '<li><b>'+esc(it[0])+'</b> '+esc(legalFill(it[1]))+'</li>';}).join("")+'</ol></div>';}
+function legalLinks(){return '<div class="row" style="flex-wrap:wrap;gap:14px;margin-top:18px"><button class="crumb" type="button" data-go="terms">'+t("termsT")+'</button><button class="crumb" type="button" data-go="privacy">'+t("privacyT")+'</button></div>';}
+
+function eSizeBox(p){
+ var on=isClothing(p.category_id);
+ return '<div id="esizebox" style="display:'+(on?'block':'none')+'"><b>'+t("sizesL")+'</b><div class="row" style="flex-wrap:wrap;gap:12px;margin-top:6px">'+SIZES.map(function(x){return '<label style="flex-direction:row;align-items:center;gap:4px"><input type="checkbox" class="esz" value="'+x+'"'+((p.sizes||[]).indexOf(x)>-1?' checked':'')+'> '+x+'</label>';}).join("")+'</div></div>';}
+function editForm(p){
+ var cats=leafCats();
+ if(!cats.some(function(c){return c.id===p.category_id;})){var cc=cat(p.category_id);if(cc)cats=[cc].concat(cats);}
+ var ims=(p.images&&p.images.length)?p.images:(p.image_url?[p.image_url]:[]);
+ var h='<form class="panel" id="eform" novalidate data-id="'+p.id+'"><b>'+t("editProduct")+'</b>'
+  +'<label>'+t("category")+'<select id="e-cat" class="f">'+cats.map(function(c){return '<option value="'+esc(c.id)+'"'+(c.id===p.category_id?' selected':'')+'>'+esc(catLabel(c))+'</option>';}).join("")+'</select></label>'
+  +'<label>'+t("pname")+' (کوردی)<input class="f" id="e-nku" value="'+esc(p.name_ku||"")+'"></label><label>'+t("pname")+' (عربي)<input class="f" id="e-nar" value="'+esc(p.name_ar||"")+'"></label><label>'+t("pname")+' (English)<input class="f" id="e-nen" dir="ltr" value="'+esc(p.name_en||"")+'"></label>'
+  +'<label>'+t("desc")+'<textarea class="f" id="e-desc" rows="3">'+esc(L(p,"desc")||"")+'</textarea></label>'
+  +'<label>'+t("price")+'<input class="f" id="e-pr" type="number" inputmode="numeric" min="0" dir="ltr" value="'+p.price_iqd+'"></label>'
+  +'<label>'+t("stockL")+'<input class="f" id="e-st" type="number" inputmode="numeric" min="0" dir="ltr" value="'+p.stock+'"></label>'
+  +eSizeBox(p);
+ if(ims.length)h+='<div><b>'+t("photosL")+'</b></div><div class="row" style="flex-wrap:wrap;gap:10px">'+ims.map(function(u,k){return '<label style="align-items:center;gap:4px;width:72px"><span class="thumb img" style="display:block;width:64px;height:64px;border-radius:8px;overflow:hidden"><img src="'+esc(u)+'" alt=""></span><span style="display:flex;align-items:center;gap:4px"><input type="checkbox" class="rmimg" value="'+k+'"> '+t("removeL")+'</span></label>';}).join("")+'</div>';
+ h+='<label>'+t("photosL")+'<input class="f" id="e-img" type="file" accept="image/*" multiple></label>'
+  +'<div id="eerr" style="color:var(--price);min-height:20px" role="alert"></div><div class="row"><button class="btn" type="submit">'+t("save")+'</button><button class="btn ghost" type="button" data-act="pcancel">'+t("cancel")+'</button></div></form>';
+ return h;}
+async function doEditProduct(){
+ if(S.saving)return;
+ var id=parseInt($("eform").dataset.id,10),p=S.mine.filter(function(x){return x.id===id;})[0];if(!p)return;
+ var nm={ku:$("e-nku").value.trim(),ar:$("e-nar").value.trim(),en:$("e-nen").value.trim()},any=nm.ku||nm.ar||nm.en;
+ var price=parseInt($("e-pr").value,10),stock=parseInt($("e-st").value,10);
+ if(!any||isNaN(price)||price<=0||isNaN(stock)||stock<0){$("eerr").textContent=t("fillAll");return;}
+ var old=(p.images&&p.images.length)?p.images:(p.image_url?[p.image_url]:[]);
+ var rm=Array.prototype.map.call(document.querySelectorAll("#eform .rmimg:checked"),function(x){return +x.value;});
+ var keep=old.filter(function(u,k){return rm.indexOf(k)<0;});
+ var fl=Array.prototype.slice.call($("e-img").files);
+ if(keep.length+fl.length>5){$("eerr").textContent=t("maxPhotos");return;}
+ var cid=$("e-cat").value,d=$("e-desc").value.trim();
+ var szs=isClothing(cid)?Array.prototype.map.call(document.querySelectorAll("#eform .esz:checked"),function(x){return x.value;}):[];
+ var btn=document.querySelector("#eform button[type=submit]");S.saving=true;if(btn)btn.disabled=true;
+ try{
+  var ims=keep.slice();for(var k=0;k<fl.length;k++)ims.push(await uploadImg(fl[k],900));
+  await upd("products",{category_id:cid,name_ku:nm.ku||any,name_ar:nm.ar||any,name_en:nm.en||any,desc_ku:d,desc_ar:d,desc_en:d,price_iqd:price,stock:stock,image_url:ims[0]||null,images:ims,sizes:szs},"id",id);
+  S.edit=null;await refreshMine();await loadPublic();S.saving=false;render();toast(t("saved"));
+ }catch(e){S.saving=false;if(btn)btn.disabled=false;var er=$("eerr");if(er)er.textContent=errText(e);}}
 /* ---------- Events ---------- */
 document.addEventListener("click",function(e){
  var el=e.target.closest("[data-act],[data-go],[data-p],[data-fav],[data-add],[data-q],[data-auth],#logo,#logout,#retry,#langs button");if(!el)return;
@@ -898,11 +1020,12 @@ document.addEventListener("click",function(e){
  if(el.dataset.add){addToCart(+el.dataset.add);return;}
  if(el.dataset.q){changeQty(+el.dataset.q,el.dataset.s||"",+el.dataset.d);return;}
 });
-document.addEventListener("change",function(e){if(e.target.dataset&&e.target.dataset.cact){doChange(e.target);return;}if(e.target.id==="p-cat"){var sbx=$("sizebox");if(sbx)sbx.style.display=isClothing(e.target.value)?"block":"none";return;}if(e.target.id==="sort"){S.sort=e.target.value;keepScroll();}});
+document.addEventListener("change",function(e){if(e.target.dataset&&e.target.dataset.cact){doChange(e.target);return;}if(e.target.id==="p-cat"||e.target.id==="e-cat"){var sbx=$(e.target.id==="p-cat"?"sizebox":"esizebox");if(sbx)sbx.style.display=isClothing(e.target.value)?"block":"none";return;}if(e.target.id==="sort"){S.sort=e.target.value;keepScroll();}});
 document.addEventListener("submit",async function(e){
  e.preventDefault();
  if(S.busy)return;
  if(e.target.id==="bform"){return doAddBanner();}
+ if(e.target.id==="eform"){return doEditProduct();}
  if(e.target.id==="forgot"){return doForgot();}
  if(e.target.id==="recov"){return doRecov();}
  if(e.target.id==="rateform"){return doRate();}
@@ -913,9 +1036,10 @@ document.addEventListener("submit",async function(e){
   var em=$("a-email").value.trim(),pw=$("a-pass").value,reg=S.authMode==="register";
   if(!em||!pw){$("aerr").textContent=t("fillAll");return;}
   if(reg&&pw.length<6){$("aerr").textContent=t("pwHint");return;}
+  if(reg&&!$("a-terms").checked){$("aerr").textContent=t("mustAccept");return;}
   S.busy=true;S.authErr="";S.authMsg="";
   var r;
-  if(reg)r=await sb.auth.signUp({email:em,password:pw,options:{data:{full_name:$("a-name").value.trim(),phone:$("a-phone").value.trim()}}});
+  if(reg)r=await sb.auth.signUp({email:em,password:pw,options:{data:{full_name:$("a-name").value.trim(),phone:$("a-phone").value.trim(),terms_accepted:true}}});
   else r=await sb.auth.signInWithPassword({email:em,password:pw});
   S.busy=false;
   if(r.error){S.authErr=r.error.message;render();return;}
