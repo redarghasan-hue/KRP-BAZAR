@@ -135,6 +135,13 @@ input.f,textarea.f,select.f{width:100%;max-width:100%;min-width:0}
 .ad{display:inline-block;align-self:flex-start;background:var(--accent);color:var(--accent-ink);font-size:11px;font-weight:700;padding:1px 8px;border-radius:99px}
 header{top:0!important;padding-top:calc(10px + env(safe-area-inset-top,0px))!important}
 body::before{display:none!important}
+.card .pic,.big{aspect-ratio:1/1;position:relative;overflow:hidden;width:100%}
+.card .pic.img img,.big img,.thumb.img img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover}
+.thumb.img{position:relative}
+.gal{display:flex;gap:8px;margin-top:8px;flex-wrap:wrap}
+.gal button{all:unset;cursor:pointer;width:56px;height:56px;border-radius:8px;overflow:hidden;border:2px solid transparent;position:relative;flex:none}
+.gal button[aria-current="true"]{border-color:var(--accent)}
+.gal img{width:100%;height:100%;object-fit:cover;display:block}
 </style>
 <header>
   <div class="hrow">
@@ -237,7 +244,7 @@ async function loadPublic(){
   var a=await sb.from("categories").select("*").order("sort");
   var b=await sb.from("products").select("*,shops(id,name,logo_url)").eq("active",true).order("id",{ascending:false});
   if(a.error||b.error)throw (a.error||b.error);
-  S.cats=a.data;S.prods=b.data;S.loadErr=false;
+  S.cats=a.data.filter(function(c){return c.active!==false;});S.prods=b.data.filter(function(p){return !!cat(p.category_id);});S.loadErr=false;
   try{var rv=await sb.from("shop_reviews").select("*").order("id",{ascending:false}).limit(2000);S.reviews=rv.error?[]:(rv.data||[]);}catch(e2){S.reviews=[];}
   try{var bn0=await sb.from("banners").select("*").order("id",{ascending:false});S.banners=bn0.error?[]:(bn0.data||[]);}catch(e3){S.banners=[];}
  }catch(e){S.loadErr=true;}
@@ -269,7 +276,7 @@ function orderStep(o){var items=o.order_items||[];if(!items.length)return 0;var 
 function card(p){
  var fav=S.favs.indexOf(p.id)>-1;
  return '<div class="card"><button class="fav" type="button" data-fav="'+p.id+'" aria-pressed="'+fav+'" aria-label="'+t("favs")+'"><svg viewBox="0 0 24 24" fill="'+(fav?"currentColor":"none")+'" stroke="currentColor" stroke-width="2"><path d="M12 21s-8-5.2-8-11a4.6 4.6 0 0 1 8-3 4.6 4.6 0 0 1 8 3c0 5.8-8 11-8 11z"/></svg></button>'
-  +'<button type="button" data-p="'+p.id+'" style="all:unset;cursor:pointer;display:flex;flex-direction:column">'+pic(p,"pic")
+  +'<button type="button" data-p="'+p.id+'" style="all:unset;cursor:pointer;display:flex;flex-direction:column;width:100%">'+pic(p,"pic")
   +'<div class="body"><span class="name">'+esc(L(p,"name"))+'</span>'+(isFeat(p)?'<span class="ad">★ '+t("featured")+'</span>':'')+'<span class="from">'+esc(p.shops?p.shops.name:"")+'</span><span class="price">'+money(p.price_iqd)+'</span></div></button></div>';
 }
 function sorted(list){var l=list.slice();if(S.sort==="1")l.sort(function(a,b){return a.price_iqd-b.price_iqd;});if(S.sort==="2")l.sort(function(a,b){return b.price_iqd-a.price_iqd;});return l;}
@@ -289,7 +296,7 @@ function vProduct(id){
  var fav=S.favs.indexOf(p.id)>-1,c=cat(p.category_id);
  var stock=p.stock>0?(p.stock<=5?t("stock").replace("{n}",num(p.stock)):t("inStock")):t("out");
  return '<button class="crumb" type="button" data-go="cat-'+esc(p.category_id)+'">‹ '+esc(c?L(c,"name"):t("back"))+'</button>'
-  +'<div style="position:relative">'+pic(p,"big")+'<button class="fav" type="button" data-fav="'+p.id+'" aria-pressed="'+fav+'" aria-label="'+t("favs")+'"><svg viewBox="0 0 24 24" fill="'+(fav?"currentColor":"none")+'" stroke="currentColor" stroke-width="2"><path d="M12 21s-8-5.2-8-11a4.6 4.6 0 0 1 8-3 4.6 4.6 0 0 1 8 3c0 5.8-8 11-8 11z"/></svg></button></div>'
+  +'<div style="position:relative">'+gallery(p)+'<button class="fav" type="button" data-fav="'+p.id+'" aria-pressed="'+fav+'" aria-label="'+t("favs")+'"><svg viewBox="0 0 24 24" fill="'+(fav?"currentColor":"none")+'" stroke="currentColor" stroke-width="2"><path d="M12 21s-8-5.2-8-11a4.6 4.6 0 0 1 8-3 4.6 4.6 0 0 1 8 3c0 5.8-8 11-8 11z"/></svg></button></div>'
   +'<div><h1>'+esc(L(p,"name"))+'</h1><div class="price" style="font-size:22px;margin-top:4px">'+money(p.price_iqd)+'</div></div>'
   +'<div class="panel"><b>'+t("desc")+'</b><span>'+esc(L(p,"desc"))+'</span></div>'
   +'<div class="panel">'+sizePick(p)+'<div class="offer"><div>'+shopLink(p.shops)+'<small>'+t("seller")+' · '+stock+'</small></div><button class="btn" type="button" data-add="'+p.id+'"'+(p.stock>0?"":" disabled")+'>'+t("add")+'</button></div></div>';
@@ -304,6 +311,11 @@ function vCat(id){
  var h=c.parent_id?'<button class="crumb" type="button" data-go="cat-'+esc(c.parent_id)+'">‹ '+esc(L(cat(c.parent_id),"name"))+'</button>':'';
  if(kids.length)h+='<div class="cats">'+kids.map(catTile).join("")+'</div>';
  return h+listView(L(c,"name"),S.prods.filter(function(p){return ids.indexOf(p.category_id)>-1;}));}
+function gallery(p){
+ var im=(p.images&&p.images.length)?p.images:(p.image_url?[p.image_url]:[]);
+ if(im.length<2)return pic(p,"big");
+ var i=Math.min((S.pimg||{})[p.id]||0,im.length-1);
+ return '<div class="big img"><img src="'+esc(im[i])+'" alt=""></div><div class="gal">'+im.map(function(u,k){return '<button type="button" data-act="img" data-id="'+p.id+'" data-v="'+k+'" aria-current="'+(k===i)+'"><img src="'+esc(u)+'" alt="" loading="lazy"></button>';}).join("")+'</div>';}
 function sizePick(p){
  if(!p.sizes||!p.sizes.length)return "";
  var cur=(S.sz||{})[p.id]||"";
@@ -512,7 +524,7 @@ function mProducts(){
   +'<label>'+t("desc")+'<textarea class="f" id="p-desc" rows="3"></textarea></label>'
   +'<label>'+t("price")+'<input class="f" id="p-price" type="number" inputmode="numeric" min="0" dir="ltr"></label>'
   +'<label>'+t("stockL")+'<input class="f" id="p-stock" type="number" inputmode="numeric" min="0" dir="ltr" value="10"></label>'
-  +'<label>'+t("photo")+'<input class="f" id="p-img" type="file" accept="image/*"></label>'
+  +'<label>'+t("photosL")+'<input class="f" id="p-img" type="file" accept="image/*" multiple></label>'
   +'<div id="perr" style="color:var(--price);min-height:20px" role="alert"></div><button class="btn" type="submit"'+(S.busy?" disabled":"")+'>'+(S.busy?t("uploading"):t("addProduct"))+'</button></form>';
  h+='<div class="panel"><b>'+t("products")+' ('+num(S.mine.length)+')</b>';
  if(!S.mine.length)h+='<div class="from">'+t("noItems")+'</div>';
@@ -564,14 +576,15 @@ async function doShopReg(){
  S.busy=false;await refreshMine();render();}
 async function doAddProduct(){
  var nm={ku:$("p-nku").value.trim(),ar:$("p-nar").value.trim(),en:$("p-nen").value.trim()},any=nm.ku||nm.ar||nm.en;
- var price=parseInt($("p-price").value,10),stock=parseInt($("p-stock").value,10),f=$("p-img").files[0];
+ var price=parseInt($("p-price").value,10),stock=parseInt($("p-stock").value,10),fl=Array.prototype.slice.call($("p-img").files);
  if(!any||isNaN(price)||price<=0||isNaN(stock)||stock<0){$("perr").textContent=t("fillAll");return;}
+ if(fl.length>5){$("perr").textContent=t("maxPhotos");return;}
  var d=$("p-desc").value.trim(),cid=$("p-cat").value;
  var szs=isClothing(cid)?Array.prototype.map.call(document.querySelectorAll("#pform .sz:checked"),function(x){return x.value;}):[];
  S.busy=true;render();
  try{
-  var url=null;if(f)url=await uploadImg(f,900);
-  var r=await sb.from("products").insert({shop_id:S.shop.id,category_id:cid,name_ku:nm.ku||any,name_ar:nm.ar||any,name_en:nm.en||any,desc_ku:d,desc_ar:d,desc_en:d,price_iqd:price,stock:stock,image_url:url,sizes:szs}).select();
+  var urls=[];for(var k=0;k<fl.length;k++)urls.push(await uploadImg(fl[k],900));var url=urls[0]||null;
+  var r=await sb.from("products").insert({shop_id:S.shop.id,category_id:cid,name_ku:nm.ku||any,name_ar:nm.ar||any,name_en:nm.en||any,desc_ku:d,desc_ar:d,desc_en:d,price_iqd:price,stock:stock,image_url:url,images:urls,sizes:szs}).select();
   if(r.error)throw r.error;
   await refreshMine();await loadPublic();
  }catch(e){S.busy=false;render();var er=$("perr");if(er)er.textContent=errText(e);return;}
@@ -583,6 +596,7 @@ async function doAct(el){
  if(a==="login"){S.authMode="login";S.authErr="";S.authMsg="";render();return;}
  if(a==="star"){if(S.rate){var cc=$("r-comment");if(cc)S.rate.comment=cc.value;S.rate.rating=parseInt(v,10);}keepScroll();return;}
  if(a==="atab"){S.atab=v;keepScroll();return;}
+ if(a==="img"){S.pimg=S.pimg||{};S.pimg[id]=parseInt(v,10);keepScroll();return;}
  if(a==="size"){S.sz=S.sz||{};S.sz[id]=v;keepScroll();return;}
  try{
   if(a==="psave"){
@@ -801,6 +815,12 @@ var T9={
  ku:{sizeL:"قەبارە",sizesL:"قەبارە بەردەستەکان",chooseSize:"تکایە قەبارە هەڵبژێرە."}
 };
 Object.keys(T9).forEach(function(k){Object.keys(T9[k]).forEach(function(x){T[k][x]=T9[k][x];});});
+var T10={
+ en:{photosL:"Photos (up to 5)",maxPhotos:"You can add at most 5 photos."},
+ ar:{photosL:"الصور (حتى 5)",maxPhotos:"يمكنك إضافة 5 صور كحد أقصى."},
+ ku:{photosL:"وێنەکان (تا ٥)",maxPhotos:"دەتوانیت تا ٥ وێنە زیاد بکەیت."}
+};
+Object.keys(T10).forEach(function(k){Object.keys(T10[k]).forEach(function(x){T[k][x]=T10[k][x];});});
 Object.keys(T7).forEach(function(k){Object.keys(T7[k]).forEach(function(x){T[k][x]=T7[k][x];});});
 
 function waNum(p){var d=String(p||"").replace(/[^\d]/g,"");if(d.indexOf("00")===0)d=d.slice(2);else if(d.charAt(0)==="0")d="964"+d.slice(1);return d;}
