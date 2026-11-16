@@ -243,7 +243,7 @@ function toast(msg){var el=$("toast");el.innerHTML='<span>'+esc(msg)+'</span>';c
 function go(h){if(location.hash==="#"+h)render();else location.hash=h;}
 function cartCount(){return S.cart.reduce(function(a,i){return a+i.qty;},0);}
 function keepScroll(){var y=window.scrollY;render();window.scrollTo(0,y);}
-function errText(e){var m=(e&&e.message)||"";if(/unavailable item/.test(m))return t("unavailable");if(/missing fields/.test(m))return t("fillAll");if(/rate limit/.test(m))return t("rateLimitMsg");if(/reason required/.test(m))return t("reasonNeeded");if(/invalid size/.test(m))return t("chooseSize");if(/account blocked/.test(m))return t("blockedMsg");if(/too many open/.test(m))return t("tooMany");if(/cannot cancel/.test(m))return t("cancelLate");return m||t("error");}
+function errText(e){var m=(e&&e.message)||"";if(/unavailable item/.test(m))return t("unavailable");if(/missing fields/.test(m))return t("fillAll");if(/coupon expired/.test(m))return t("cpExpired");if(/coupon used/.test(m))return t("cpUsed");if(/coupon min/.test(m))return t("cpMin");if(/coupon first/.test(m))return t("cpFirst");if(/coupon invalid/.test(m))return t("cpInvalid");if(/rate limit/.test(m))return t("rateLimitMsg");if(/reason required/.test(m))return t("reasonNeeded");if(/invalid size/.test(m))return t("chooseSize");if(/account blocked/.test(m))return t("blockedMsg");if(/too many open/.test(m))return t("tooMany");if(/cannot cancel/.test(m))return t("cancelLate");return m||t("error");}
 function needLogin(){S.authMsg=t("loginFirst");S.authMode="login";go("account");}
 
 /* ---------- Data ---------- */
@@ -277,7 +277,7 @@ async function loadOrders(){
  var r=await sb.from("orders").select("*,order_items(*,products(name_en,name_ar,name_ku),shops(name))").eq("customer_id",S.user.id).order("id",{ascending:false});
  S.orders=r.data||[];
 }
-function orderTotal(o){return (o.order_items||[]).reduce(function(a,i){return a+i.unit_price_iqd*i.qty;},0)+(o.delivery_fee_iqd||0);}
+function orderTotal(o){return (o.order_items||[]).reduce(function(a,i){return a+i.unit_price_iqd*i.qty;},0)+(o.delivery_fee_iqd||0)-(o.discount_iqd||0);}
 function orderStep(o){var items=o.order_items||[];if(!items.length)return 0;var idx=items.map(function(i){return STATUS.indexOf(i.status);});if(idx.every(function(x){return x===6;}))return 6;idx=idx.filter(function(x){return x!==6;});return Math.min.apply(null,idx);}
 
 /* ---------- Views ---------- */
@@ -354,8 +354,8 @@ function sizeBox(first){
 function readSizes(sel){var ss={},arr=[];Array.prototype.forEach.call(document.querySelectorAll(sel),function(el){var n=parseInt(el.value,10);if(n>0){ss[el.dataset.sz]=n;arr.push(el.dataset.sz);}});return {sizes:arr,stock:ss};}
 function lines(){return S.cart.map(function(i){return {p:prod(i.product_id),q:i.qty,s:i.size||""};}).filter(function(l){return l.p;});}
 function shopGroups(){var g={},ord=[];lines().forEach(function(l){var k=l.p.shop_id;if(!g[k]){g[k]={name:l.p.shops?l.p.shops.name:"",ls:[],sub:0};ord.push(k);}g[k].ls.push(l);g[k].sub+=l.p.price_iqd*l.q;});return ord.map(function(k){return g[k];});}
-function totals(){var sub=0,fee=0;shopGroups().forEach(function(g){sub+=g.sub;fee+=g.sub>=100000?0:3000;});return {sub:sub,fee:fee,tot:sub+fee};}
-function sumHtml(){var s=totals();return '<div class="sum"><span>'+t("sub")+'</span><span>'+money(s.sub)+'</span></div><div class="sum"><span>'+t("del")+'</span><span>'+(s.fee?money(s.fee):t("free"))+'</span></div><div class="sum total"><span>'+t("total")+'</span><span class="price">'+money(s.tot)+'</span></div>';}
+function totals(){var sub=0,fee=0;shopGroups().forEach(function(g){sub+=g.sub;fee+=g.sub>=100000?0:3000;});var disc=S.coupon?Math.min(Number(S.coupon.discount)||0,sub):0;return {sub:sub,fee:fee,disc:disc,tot:sub+fee-disc};}
+function sumHtml(){var s=totals();return '<div class="sum"><span>'+t("sub")+'</span><span>'+money(s.sub)+'</span></div><div class="sum"><span>'+t("del")+'</span><span>'+(s.fee?money(s.fee):t("free"))+'</span></div>'+(s.disc?'<div class="sum"><span>'+t("discL")+'</span><span>−'+money(s.disc)+'</span></div>':'')+'<div class="sum total"><span>'+t("total")+'</span><span class="price">'+money(s.tot)+'</span></div>';}
 function vCart(){
  if(!S.user)return '<h1>'+t("cart")+'</h1><div class="empty"><span>'+t("loginFirst")+'</span><button class="btn" type="button" data-go="account">'+t("login")+'</button></div>';
  var gs=shopGroups();
@@ -380,7 +380,8 @@ function vCheckout(){
   +'<label>'+t("city")+'<input class="f" id="f-city" value="'+esc(pr.addr_city||({en:"Erbil",ar:"أربيل",ku:"هەولێر"})[S.lang])+'"></label>'
   +'<label>'+t("addr")+'<textarea class="f" id="f-addr" rows="3">'+esc(pr.addr_text||"")+'</textarea></label>'
   +'<div><button class="btn ghost" type="button" data-act="geo">📍 '+t("geoBtn")+'</button><div class="from" id="geo-st">'+(S.geo?'✓ '+t("geoOk"):t("geoHint"))+'</div></div>'
-  +'<div class="note" style="text-align:start;color:var(--ink)">'+t("cod")+'</div>'+sumHtml()
+  +'<div class="row" style="align-items:flex-end"><label style="flex:1">'+t("couponCode")+'<input class="f" id="f-coupon" dir="ltr" autocapitalize="characters" value="'+esc(S.coupon?S.coupon.code:"")+'"'+(S.coupon?' disabled':'')+'></label><button class="btn ghost" type="button" data-act="'+(S.coupon?'cprem':'cpapply')+'">'+(S.coupon?t("removeL"):t("applyL"))+'</button></div><div class="from" id="cpmsg">'+(S.coupon?'✓ '+t("cpApplied"):'')+'</div>'
+  +'<div class="note" style="text-align:start;color:var(--ink)">'+t("cod")+'</div><div id="sumbox">'+sumHtml()+'</div>'
   +'<div id="err" style="color:var(--price);min-height:20px" role="alert"></div><button class="btn" type="submit"'+(S.busy?" disabled":"")+'>'+t("place")+'</button></form>';
 }
 function steps(cur){var h='<ol class="steps">';t("st").forEach(function(s,i){if(i===6&&cur!==6)return;if(i<6&&cur===6)return;h+='<li class="'+(i<=cur&&cur!==6?"on":"")+(i===6?" cx":"")+'"><i></i>'+s+'</li>';});return h+'</ol>';}
@@ -479,6 +480,7 @@ async function toggleFav(id){
 function availFor(p,sz){return (p.sizes&&p.sizes.length)?(Number((p.size_stock||{})[sz])||0):p.stock;}
 async function addToCart(id){
  if(!S.user)return needLogin();
+ S.coupon=null;
  var p=prod(id),sz="";
  if(p&&p.sizes&&p.sizes.length){sz=(S.sz||{})[id]||"";if(!sz){toast(t("chooseSize"));return;}}
  var f=S.cart.filter(function(c){return c.product_id===id&&(c.size||"")===sz;})[0],q=(f?f.qty:0)+1;
@@ -489,6 +491,7 @@ async function addToCart(id){
  toast(t("added"));keepScroll();
 }
 async function changeQty(id,sz,d){
+ S.coupon=null;
  var f=S.cart.filter(function(c){return c.product_id===id&&(c.size||"")===sz;})[0];if(!f)return;
  var q=f.qty+d,p=prod(id),r;
  if(q<1){r=await sb.from("cart_items").delete().eq("user_id",S.user.id).eq("product_id",id).eq("size",sz);if(!r.error)S.cart=S.cart.filter(function(c){return c!==f;});}
@@ -527,7 +530,7 @@ async function refreshMine(){
  if(!S.shop||S.shop.status!=="approved"){S.mine=[];S.items=[];return;}
  var a=await sb.from("products").select("*").eq("shop_id",S.shop.id).eq("deleted",false).order("id",{ascending:false});
  S.mine=a.data||[];
- var b=await sb.from("order_items").select("*,orders(id,customer_id,name,phone,city,address,location_url,created_at),products(name_en,name_ar,name_ku)").eq("shop_id",S.shop.id).order("id",{ascending:false});
+ var b=await sb.from("order_items").select("*,orders(id,customer_id,name,phone,city,address,location_url,discount_iqd,created_at),products(name_en,name_ar,name_ku)").eq("shop_id",S.shop.id).order("id",{ascending:false});
  S.items=b.data||[];
  var pa=await sb.from("payouts").select("*").eq("shop_id",S.shop.id).order("id",{ascending:false});S.payouts=pa.error?[]:(pa.data||[]);
  S.newCnt=countNew();}
@@ -535,7 +538,7 @@ async function loadAdmin(){
  if(!S.profile||S.profile.role!=="admin"){S.adm=null;return;}
  var a=await sb.from("shops").select("*,profiles(full_name,phone)").order("created_at",{ascending:false});
  var b=await sb.from("products").select("*,shops(name)").eq("deleted",false).order("id",{ascending:false}).limit(300);
- var c=await sb.from("order_items").select("*,orders(id,customer_id,name,phone,city,address,location_url,created_at),products(name_en,name_ar,name_ku),shops(name)").order("id",{ascending:false}).limit(1000);
+ var c=await sb.from("order_items").select("*,orders(id,customer_id,name,phone,city,address,location_url,discount_iqd,created_at),products(name_en,name_ar,name_ku),shops(name)").order("id",{ascending:false}).limit(1000);
  var d=await sb.from("settings").select("*").eq("key","default_commission_pct").maybeSingle();
  var bn=await sb.from("banners").select("*").order("id",{ascending:false});
  var cm=await sb.from("complaints").select("*,profiles(full_name,phone)").order("id",{ascending:false}).limit(200);
@@ -543,6 +546,7 @@ async function loadAdmin(){
  var po=await sb.from("payouts").select("*").order("id",{ascending:false}).limit(1000);
  var mx=await sb.from("settings").select("*").eq("key","max_open_orders").maybeSingle();
  S.adm={cust:pf.error?[]:(pf.data||[]),pay:po.error?[]:(po.data||[]),maxo:mx.data?mx.data.value:"3",shops:a.data||[],prods:b.data||[],items:c.data||[],def:d.data?d.data.value:"5",comp:(cm.data||[]),banners:(bn.data||[])};
+ var cpn=await sb.from("coupons").select("*").order("created_at",{ascending:false});S.adm.coupons=cpn.error?[]:(cpn.data||[]);
  var sc2=await sb.from("shop_contacts").select("*");S.adm.sphone={};(sc2.data||[]).forEach(function(x){S.adm.sphone[x.shop_id]=x.phone;});}
 function groupItems(items){var g={},ord=[];items.forEach(function(i){var k=i.order_id;if(!g[k]){g[k]=[];ord.push(k);}g[k].push(i);});return ord.map(function(k){return g[k];});}
 function stSel(it){
@@ -592,19 +596,21 @@ function vShop(){
  return h+'</section>';}
 function vAdmin(){
  if(!S.user||!S.profile||S.profile.role!=="admin"||!S.adm)return "";
- var a=S.adm,h='<section><h2>'+t("admin")+'</h2>'+tabs([["stats","statsT"],["shops","shopsT"],["aprod","products"],["aord","shopOrders"],["cust","customersT"],["settle","settleT"],["comp","complaintsT"],["banners","bannersT"],["set","settingsT"]],S.atab,"atab");
+ var a=S.adm,h='<section><h2>'+t("admin")+'</h2>'+tabs([["stats","statsT"],["shops","shopsT"],["aprod","products"],["aord","shopOrders"],["cust","customersT"],["settle","settleT"],["rev","reviewsT"],["cpn","couponsT"],["comp","complaintsT"],["banners","bannersT"],["set","settingsT"]],S.atab,"atab");
  if(S.atab==="shops"){
+  var CM=compMap();
   h+='<div class="panel">'+(a.shops.length?"":'<div class="from">'+t("noItems")+'</div>')+a.shops.map(function(s){var ow=s.profiles||{};
-   return '<div class="order"><div class="sum"><b>'+esc(s.name)+'</b><span class="pill">'+esc(sLabel(s.status))+'</span></div><div class="from">'+esc(ow.full_name||"")+' · <span dir="ltr">'+esc(ow.phone||"")+'</span></div><div class="from">'+(s.address?'📍 '+esc(s.address):'')+' <span dir="ltr">'+esc((a.sphone||{})[s.id]||"")+'</span></div>'
+   return '<div class="order"><div class="sum"><b>'+esc(s.name)+'</b><span class="pill">'+esc(sLabel(s.status))+'</span></div><div class="from">'+esc(ow.full_name||"")+' · <span dir="ltr">'+esc(ow.phone||"")+'</span></div><div class="from">'+(s.address?'📍 '+esc(s.address):'')+' <span dir="ltr">'+esc((a.sphone||{})[s.id]||"")+'</span></div>'+(CM.by[s.id]?'<div class="from">'+t("complaintsT")+': '+num(CM.by[s.id].n)+' ('+t("openL")+': '+num(CM.by[s.id].open)+')</div>':'')
     +'<div class="row"><label style="flex:1">'+t("shopCommission")+'<input class="f" id="c-'+s.id+'" type="number" step="0.5" min="0" max="50" dir="ltr" placeholder="'+esc(a.def)+'" value="'+(s.commission_pct==null?"":s.commission_pct)+'"></label><button class="btn ghost" type="button" data-act="ccsave" data-id="'+s.id+'">'+t("save")+'</button></div>'
     +'<div class="row">'+(s.status!=="approved"?'<button class="btn" type="button" data-act="shst" data-id="'+s.id+'" data-v="approved">'+t("approve")+'</button>':'')+(s.status!=="suspended"?'<button class="btn ghost" type="button" data-act="shst" data-id="'+s.id+'" data-v="suspended">'+t("suspend")+'</button>':'')+'<button class="btn ghost" type="button" data-act="chatshop2" data-id="'+s.id+'">💬 '+t("chatShopBtn")+'</button></div></div>';}).join("")+'</div>';
  }else if(S.atab==="aprod"){
   h+='<div class="panel">'+a.prods.map(function(p){return '<div class="row">'+pic(p,"thumb")+'<div class="info"><div style="font-weight:500">'+esc(L(p,"name"))+'</div><div class="from">'+esc(p.shops?p.shops.name:"")+' · '+money(p.price_iqd)+'</div>'+(p.active?'':'<span class="pill">'+t("hidden")+'</span>')+featBtns(p)+'</div><button class="btn ghost" type="button" data-act="padm" data-id="'+p.id+'" data-v="'+(!p.active)+'">'+(p.active?t("hide"):t("show"))+'</button><button class="btn ghost" type="button" data-act="adel" data-id="'+p.id+'">'+t("delBtn")+'</button></div>'+(S.delP===p.id?'<div class="panel"><label>'+t("delReason")+'<textarea class="f" id="del-reason" rows="3"></textarea></label><div class="row"><button class="btn" type="button" data-act="delok" data-id="'+p.id+'">'+t("delConfirm")+'</button><button class="btn ghost" type="button" data-act="delcancel">'+t("cancel")+'</button></div></div>':'');}).join("")+'</div>';
  }else if(S.atab==="aord"){
   h+=orderCards(a.items.slice(0,100));
- }else if(S.atab==="cust"){h+=admCust();}else if(S.atab==="settle"){h+=admSettle();}else if(S.atab==="comp"){h+=admComp();}else if(S.atab==="banners"){h+=admBanners();}else if(S.atab==="set"){
+ }else if(S.atab==="cust"){h+=admCust();}else if(S.atab==="settle"){h+=admSettle();}else if(S.atab==="rev"){h+=admReviews();}else if(S.atab==="cpn"){h+=admCoupons();}else if(S.atab==="comp"){h+=admComp();}else if(S.atab==="banners"){h+=admBanners();}else if(S.atab==="set"){
   h+='<div class="panel"><label>'+t("defaultCommission")+'<input class="f" id="d-comm" type="number" step="0.5" min="0" max="50" dir="ltr" value="'+esc(a.def)+'"></label><button class="btn" type="button" data-act="defsave">'+t("save")+'</button></div><div class="panel"><label>'+t("maxOpen")+'<input class="f" id="d-max" type="number" min="1" max="50" dir="ltr" value="'+esc(a.maxo)+'"></label><button class="btn" type="button" data-act="maxsave">'+t("save")+'</button></div>';
  }else{
+  h+=statsPanel(a.items,true);
   var ords={},sales=0,comm=0;
   a.items.forEach(function(i){ords[i.order_id]=1;var m=i.unit_price_iqd*i.qty;if(i.status!=="cancelled")sales+=m;if(i.status==="delivered")comm+=m*Number(i.commission_pct)/100;});
   h+='<div class="panel"><div class="sum"><span>'+t("totalOrders")+'</span><span>'+num(Object.keys(ords).length)+'</span></div><div class="sum"><span>'+t("totalSales")+'</span><span>'+money(sales)+'</span></div><div class="sum"><span>'+t("commEarned")+'</span><span class="price">'+money(Math.round(comm))+'</span></div><div class="sum"><span>'+t("pendingShops")+'</span><span>'+num(a.shops.filter(function(s){return s.status==="pending";}).length)+'</span></div><div class="sum"><span>'+t("activeProducts")+'</span><span>'+num(a.prods.filter(function(p){return p.active;}).length)+'</span></div></div>';
@@ -642,6 +648,7 @@ async function doAct(el){
  if(a==="login"){S.authMode="login";S.authErr="";S.authMsg="";render();return;}
  if(a==="star"){if(S.rate){var cc=$("r-comment");if(cc)S.rate.comment=cc.value;S.rate.rating=parseInt(v,10);}keepScroll();return;}
  if(a==="atab"){S.atab=v;keepScroll();return;}
+ if(a==="statp"){S.statP=v;keepScroll();return;}
  if(a==="img"){S.pimg=S.pimg||{};S.pimg[id]=parseInt(v,10);keepScroll();return;}
  if(a==="pedit"){S.edit=parseInt(id,10);render();return;}
  if(a==="pcancel"){S.edit=null;render();return;}
@@ -687,6 +694,24 @@ async function doAct(el){
    await upd("shops",{address:sa},"id",S.shop.id);
    var sr=await sb.from("shop_contacts").upsert({shop_id:S.shop.id,phone:sp},{onConflict:"shop_id"});if(sr.error)throw sr.error;
    await refreshShop();toast(t("saved"));keepScroll();
+  }else if(a==="rvdel"){
+   var rd=await sb.from("shop_reviews").delete().eq("id",parseInt(id,10));if(rd.error)throw rd.error;
+   await loadPublic();toast(t("deletedOk"));keepScroll();
+  }else if(a==="cptoggle"){
+   await upd("coupons",{active:v==="true"},"code",id);await loadAdmin();toast(t("saved"));keepScroll();
+  }else if(a==="cpdel"){
+   if(!confirm(t("delAsk")))return;
+   var cd=await sb.from("coupons").delete().eq("code",id);if(cd.error)throw cd.error;await loadAdmin();toast(t("deletedOk"));keepScroll();
+  }else if(a==="cpapply"){
+   var cc=($("f-coupon").value||"").trim().toUpperCase();if(!cc)return;
+   var cr=await sb.rpc("check_coupon",{p_code:cc,p_sub:totals().sub});
+   if(cr.error){$("cpmsg").textContent=errText(cr.error);return;}
+   S.coupon={code:cc,discount:cr.data};
+   $("f-coupon").disabled=true;el.dataset.act="cprem";el.textContent=t("removeL");
+   $("cpmsg").textContent="✓ "+t("cpApplied");$("sumbox").innerHTML=sumHtml();
+  }else if(a==="cprem"){
+   S.coupon=null;$("f-coupon").disabled=false;$("f-coupon").value="";el.dataset.act="cpapply";el.textContent=t("applyL");
+   $("cpmsg").textContent="";$("sumbox").innerHTML=sumHtml();
   }else if(a==="pdelete"){
    if(!confirm(t("delAsk")))return;
    var dr=await sb.rpc("remove_product",{p_id:parseInt(id,10),p_reason:null});if(dr.error)throw dr.error;
@@ -788,9 +813,9 @@ function vForgot(){
 function vRecovery(){
  return '<h1>'+t("newPass")+'</h1><form class="panel" id="recov" novalidate><label>'+t("newPass")+'<input class="f" id="n-pass" type="password" dir="ltr" autocomplete="new-password"><span>'+t("pwHint")+'</span></label><div id="nerr" style="color:var(--price);min-height:20px" role="alert"></div><button class="btn" type="submit"'+(S.busy?" disabled":"")+'>'+t("setPass")+'</button></form>';}
 function admComp(){
- var l=S.adm.comp||[];
+ var l=S.adm.comp||[],CMP=compMap();
  return '<div class="panel">'+(l.length?l.map(function(c){var p=c.profiles||{};
-  return '<div class="order"><div class="sum"><b>'+esc(p.full_name||"")+'</b><span class="pill">'+(c.status==="resolved"?t("resolvedL"):t("openL"))+'</span></div><div class="from"><span dir="ltr">'+esc(p.phone||"")+'</span>'+(c.order_id?' · #'+c.order_id:'')+' · '+esc((c.created_at||"").slice(0,10))+'</div><div>'+esc(c.message)+'</div>'
+  return '<div class="order"><div class="sum"><b>'+esc(p.full_name||"")+'</b><span class="pill">'+(c.status==="resolved"?t("resolvedL"):t("openL"))+'</span></div><div class="from"><span dir="ltr">'+esc(p.phone||"")+'</span>'+(c.order_id?' · #'+c.order_id:'')+' · '+esc((c.created_at||"").slice(0,10))+'</div>'+(c.order_id&&CMP.os[c.order_id]?'<div class="from">'+t("shopsInvolved")+': '+esc(Object.keys(CMP.os[c.order_id]).map(function(k){return CMP.os[c.order_id][k];}).join(", "))+'</div>':'')+'<div>'+esc(c.message)+'</div>'
    +(c.status==="resolved"?'<div class="msg"><b>'+t("replyL")+':</b> '+esc(c.admin_reply||"")+'</div>':'<label>'+t("yourReply")+'<textarea class="f" id="r-'+c.id+'" rows="2"></textarea></label><button class="btn" type="button" data-act="creply" data-id="'+c.id+'">'+t("replyResolve")+'</button>')+'</div>';}).join(""):'<div class="from">'+t("noItems")+'</div>')+'</div>';}
 async function loadComplaints(){
  if(!S.user){S.complaints=[];return;}
@@ -927,7 +952,7 @@ async function pollNew(silent){
  if(!silent&&n>(S.newCnt||0))toast(t("newOrderToast"));
  S.newCnt=n;drawNav();}
 
-function mEarn(){
+function mEarn0(){
  var r=earnCalc(S.items),net=Math.round(r.sales-r.comm),pays=S.payouts||[],paid=pays.reduce(function(a,p){return a+Number(p.amount_iqd);},0);
  var h='<div class="panel"><div class="sum"><span>'+t("sales")+'</span><span>'+money(r.sales)+'</span></div><div class="sum"><span>'+t("commission")+'</span><span>'+money(Math.round(r.comm))+'</span></div><div class="sum"><span>'+t("net")+'</span><span>'+money(net)+'</span></div><div class="sum"><span>'+t("paidOut")+'</span><span>'+money(paid)+'</span></div><div class="sum total"><span>'+t("balanceL")+'</span><span class="price">'+money(net-paid)+'</span></div><div class="sum"><span>'+t("open")+'</span><span>'+money(r.open)+'</span></div><button class="btn ghost" type="button" data-act="csv" data-v="me">'+t("csv")+'</button></div>';
  if(pays.length)h+='<div class="panel"><b>'+t("payHist")+'</b>'+pays.map(function(p){return '<div class="sum"><span class="from">'+esc((p.created_at||"").slice(0,10))+(p.note?' · '+esc(p.note):'')+'</span><span>'+money(Number(p.amount_iqd))+'</span></div>';}).join("")+'</div>';
@@ -1139,6 +1164,71 @@ async function doSend(){
 function chatBtn(sid){
  if(S.shop&&S.shop.id===sid)return "";
  return '<button class="btn ghost" type="button" data-act="chatshop" data-id="'+sid+'">💬 '+t("chatSeller")+'</button>';}
+
+var T14={
+ en:{p7:"7 days",p30:"30 days",pAll:"All time",dailySales:"Sales per day",topProducts:"Top products",topShops:"Top shops",cancelledL:"Cancelled items",discountsL:"Discounts given",platformNet:"Platform income (commission − discounts)",reviewsT:"Reviews",shopsInvolved:"Shops",couponsT:"Coupons",couponCode:"Coupon code",couponKind:"Type",kindPercent:"Percent (%)",kindFixed:"Fixed amount (IQD)",couponValue:"Value",minOrder:"Minimum order (IQD)",maxUses:"Max uses (optional)",firstOnly:"First order only",validDays:"Valid for days (optional)",addCoupon:"Add coupon",usedL:"used",discL:"Discount",cpInvalid:"This coupon code is not valid.",cpExpired:"This coupon has expired.",cpUsed:"You already used this coupon.",cpMin:"Minimum order value not reached.",cpFirst:"This coupon is only for your first order.",cpApplied:"Coupon applied",cpDup:"This code already exists.",untilL:"until"},
+ ar:{p7:"7 أيام",p30:"30 يوماً",pAll:"كل الفترة",dailySales:"المبيعات اليومية",topProducts:"أفضل المنتجات",topShops:"أفضل المتاجر",cancelledL:"العناصر الملغاة",discountsL:"الخصومات الممنوحة",platformNet:"دخل المنصة (العمولة − الخصومات)",reviewsT:"التقييمات",shopsInvolved:"المتاجر",couponsT:"القسائم",couponCode:"رمز القسيمة",couponKind:"النوع",kindPercent:"نسبة (%)",kindFixed:"مبلغ ثابت (د.ع)",couponValue:"القيمة",minOrder:"الحد الأدنى للطلب (د.ع)",maxUses:"الحد الأقصى للاستخدام (اختياري)",firstOnly:"للطلب الأول فقط",validDays:"صالحة لعدد أيام (اختياري)",addCoupon:"إضافة قسيمة",usedL:"مستخدمة",discL:"الخصم",cpInvalid:"رمز القسيمة غير صالح.",cpExpired:"انتهت صلاحية هذه القسيمة.",cpUsed:"لقد استخدمت هذه القسيمة من قبل.",cpMin:"لم تبلغ الحد الأدنى للطلب.",cpFirst:"هذه القسيمة لطلبك الأول فقط.",cpApplied:"تم تطبيق القسيمة",cpDup:"هذا الرمز موجود بالفعل.",untilL:"حتى"},
+ ku:{p7:"٧ ڕۆژ",p30:"٣٠ ڕۆژ",pAll:"هەموو کات",dailySales:"فرۆشتنی ڕۆژانە",topProducts:"باشترین کاڵاکان",topShops:"باشترین فرۆشگاکان",cancelledL:"کاڵا هەڵوەشێنراوەکان",discountsL:"داشکاندنە دراوەکان",platformNet:"داهاتی پلاتفۆرم (کۆمیسیۆن − داشکاندن)",reviewsT:"هەڵسەنگاندنەکان",shopsInvolved:"فرۆشگاکان",couponsT:"کۆپۆنەکان",couponCode:"کۆدی کۆپۆن",couponKind:"جۆر",kindPercent:"ڕێژە (%)",kindFixed:"بڕی جێگیر (د.ع)",couponValue:"بەها",minOrder:"کەمترین داواکاری (د.ع)",maxUses:"زۆرترین بەکارهێنان (ئارەزوومەندانە)",firstOnly:"تەنها بۆ یەکەم داواکاری",validDays:"بۆ چەند ڕۆژ بەردەستە (ئارەزوومەندانە)",addCoupon:"زیادکردنی کۆپۆن",usedL:"بەکارهاتووە",discL:"داشکاندن",cpInvalid:"ئەم کۆدی کۆپۆنە دروست نییە.",cpExpired:"ئەم کۆپۆنە بەسەرچووە.",cpUsed:"پێشتر ئەم کۆپۆنەت بەکارهێناوە.",cpMin:"کەمترین بڕی داواکاری نەگەیشتووە.",cpFirst:"ئەم کۆپۆنە تەنها بۆ یەکەم داواکاریتە.",cpApplied:"کۆپۆن جێبەجێکرا",cpDup:"ئەم کۆدە پێشتر هەیە.",untilL:"تا"}
+};
+Object.keys(T14).forEach(function(k){Object.keys(T14[k]).forEach(function(x){T[k][x]=T14[k][x];});});
+
+function topList(map){return Object.keys(map).map(function(k){return [k,map[k]];}).sort(function(a,b){return b[1]-a[1];}).slice(0,5);}
+function statsPanel(items,admin){
+ var P=S.statP||"30",days=P==="all"?null:parseInt(P,10),now=Date.now(),cut=days?now-days*864e5:0;
+ var its=items.filter(function(i){var d=i.orders&&i.orders.created_at?new Date(i.orders.created_at).getTime():0;return d>=cut;});
+ var live={},ords={},sales=0,comm=0,canc=0,prods={},shopsM={},disc=0,N=days||30,keys=[],vals=[];
+ for(var k=N-1;k>=0;k--){keys.push(new Date(now-k*864e5).toISOString().slice(0,10));vals.push(0);}
+ its.forEach(function(i){
+  var o=i.orders||{},m=i.unit_price_iqd*i.qty;ords[i.order_id]=o;
+  if(i.status==="cancelled"){canc++;return;}
+  live[i.order_id]=1;sales+=m;
+  if(i.status==="delivered")comm+=m*Number(i.commission_pct)/100;
+  var pn=i.products?L(i.products,"name"):"?";prods[pn]=(prods[pn]||0)+m;
+  if(admin){var sn=i.shops?i.shops.name:"?";shopsM[sn]=(shopsM[sn]||0)+m;}
+  var ix=keys.indexOf((o.created_at||"").slice(0,10));if(ix>-1)vals[ix]+=m;
+ });
+ Object.keys(live).forEach(function(id){disc+=Number((ords[id]||{}).discount_iqd)||0;});
+ var mx=Math.max.apply(null,vals.concat([1]));
+ var h=tabs([["7","p7"],["30","p30"],["all","pAll"]],P,"statp")
+  +'<div class="panel"><div class="sum"><span>'+t("totalOrders")+'</span><span>'+num(Object.keys(live).length)+'</span></div><div class="sum"><span>'+t("totalSales")+'</span><span>'+money(sales)+'</span></div><div class="sum"><span>'+t("commEarned")+'</span><span>'+money(Math.round(comm))+'</span></div>'
+  +(admin?'<div class="sum"><span>'+t("discountsL")+'</span><span>'+money(disc)+'</span></div><div class="sum total"><span>'+t("platformNet")+'</span><span class="price">'+money(Math.round(comm-disc))+'</span></div>':'')
+  +'<div class="sum"><span>'+t("cancelledL")+'</span><span>'+num(canc)+'</span></div></div>'
+  +'<div class="panel"><b>'+t("dailySales")+'</b><div style="display:flex;align-items:flex-end;gap:2px;height:84px;margin-top:8px" role="img" aria-label="'+t("dailySales")+'">'+vals.map(function(v,ix){return '<span title="'+keys[ix]+': '+money(v)+'" style="flex:1;min-width:0;background:var(--brand);border-radius:2px 2px 0 0;height:'+Math.max(2,Math.round(v/mx*100))+'%;opacity:'+(v?1:.25)+'"></span>';}).join("")+'</div><div class="sum"><span class="from" dir="ltr">'+keys[0]+'</span><span class="from" dir="ltr">'+keys[keys.length-1]+'</span></div><div class="from">max '+money(mx===1&&!sales?0:mx)+'</div></div>';
+ var tp=topList(prods);
+ h+='<div class="panel"><b>'+t("topProducts")+'</b>'+(tp.length?tp.map(function(x){return '<div class="sum"><span>'+esc(x[0])+'</span><span>'+money(x[1])+'</span></div>';}).join(""):'<div class="from">'+t("noItems")+'</div>')+'</div>';
+ if(admin){var ts=topList(shopsM);h+='<div class="panel"><b>'+t("topShops")+'</b>'+(ts.length?ts.map(function(x){return '<div class="sum"><span>'+esc(x[0])+'</span><span>'+money(x[1])+'</span></div>';}).join(""):'<div class="from">'+t("noItems")+'</div>')+'</div>';}
+ return h;}
+function mEarn(){return mEarn0()+'<h2>'+t("statsT")+'</h2>'+statsPanel(S.items||[],false);}
+
+function admReviews(){
+ var l=(S.reviews||[]).slice(0,60),nm={};S.adm.shops.forEach(function(x){nm[x.id]=x.name;});
+ return '<div class="panel">'+(l.length?l.map(function(r){return '<div class="order"><div class="sum"><b>'+esc(nm[r.shop_id]||"")+'</b>'+starStr(r.rating)+'</div><div class="from">'+esc(r.author||"")+' · '+esc((r.created_at||"").slice(0,10))+'</div>'+(r.comment?'<div>'+esc(r.comment)+'</div>':'')+'<button class="btn ghost" type="button" data-act="rvdel" data-id="'+r.id+'">'+t("delBtn")+'</button></div>';}).join(""):'<div class="from">'+t("noItems")+'</div>')+'</div>';}
+function compMap(){
+ var os={},by={};
+ (S.adm.items||[]).forEach(function(i){(os[i.order_id]=os[i.order_id]||{})[i.shop_id]=i.shops?i.shops.name:"";});
+ (S.adm.comp||[]).forEach(function(c){if(!c.order_id||!os[c.order_id])return;Object.keys(os[c.order_id]).forEach(function(sid){var b=by[sid]||(by[sid]={n:0,open:0});b.n++;if(c.status!=="resolved")b.open++;});});
+ return {os:os,by:by};}
+function admCoupons(){
+ var l=S.adm.coupons||[];
+ var h='<form class="panel" id="cpform" novalidate><b>'+t("addCoupon")+'</b><label>'+t("couponCode")+'<input class="f" id="cp-code" dir="ltr" autocapitalize="characters" maxlength="24"></label>'
+  +'<label>'+t("couponKind")+'<select class="f" id="cp-kind"><option value="percent">'+t("kindPercent")+'</option><option value="fixed">'+t("kindFixed")+'</option></select></label>'
+  +'<label>'+t("couponValue")+'<input class="f" id="cp-val" type="number" inputmode="numeric" min="1" dir="ltr"></label>'
+  +'<label>'+t("minOrder")+'<input class="f" id="cp-min" type="number" inputmode="numeric" min="0" dir="ltr" value="0"></label>'
+  +'<label>'+t("maxUses")+'<input class="f" id="cp-max" type="number" inputmode="numeric" min="1" dir="ltr"></label>'
+  +'<label>'+t("validDays")+'<input class="f" id="cp-days" type="number" inputmode="numeric" min="1" dir="ltr"></label>'
+  +'<label style="flex-direction:row;align-items:center;gap:8px"><input type="checkbox" id="cp-first"> '+t("firstOnly")+'</label>'
+  +'<div id="cperr" style="color:var(--price);min-height:20px" role="alert"></div><button class="btn" type="submit">'+t("addCoupon")+'</button></form>';
+ h+='<div class="panel">'+(l.length?l.map(function(c){
+  var live=c.active&&(!c.ends_at||new Date(c.ends_at)>new Date())&&(c.max_uses==null||c.used_count<c.max_uses);
+  return '<div class="order"><div class="sum"><b dir="ltr">'+esc(c.code)+'</b><span class="pill">'+(live?t("show"):t("hidden"))+'</span></div><div class="from">'+(c.kind==="percent"?num(c.value)+'%':money(c.value))+(c.min_order_iqd?' · '+t("minOrder")+': '+money(c.min_order_iqd):'')+(c.first_order_only?' · '+t("firstOnly"):'')+'</div><div class="from">'+t("usedL")+': '+num(c.used_count)+(c.max_uses?' / '+num(c.max_uses):'')+(c.ends_at?' · '+t("untilL")+' '+esc(c.ends_at.slice(0,10)):'')+'</div>'
+   +'<div class="row"><button class="btn ghost" type="button" data-act="cptoggle" data-id="'+esc(c.code)+'" data-v="'+(!c.active)+'">'+(c.active?t("hide"):t("show"))+'</button><button class="btn ghost" type="button" data-act="cpdel" data-id="'+esc(c.code)+'">'+t("delBtn")+'</button></div></div>';}).join(""):'<div class="from">'+t("noItems")+'</div>')+'</div>';
+ return h;}
+async function doAddCoupon(){
+ var code=$("cp-code").value.trim().toUpperCase(),kind=$("cp-kind").value,val=parseInt($("cp-val").value,10),mn=parseInt($("cp-min").value,10)||0,mx=parseInt($("cp-max").value,10),days=parseInt($("cp-days").value,10);
+ if(!/^[A-Z0-9_-]{3,24}$/.test(code)||isNaN(val)||val<1||(kind==="percent"&&val>100)){$("cperr").textContent=t("fillAll");return;}
+ var r=await sb.from("coupons").insert({code:code,kind:kind,value:val,min_order_iqd:mn,max_uses:isNaN(mx)?null:mx,ends_at:isNaN(days)?null:new Date(Date.now()+days*864e5).toISOString(),first_order_only:$("cp-first").checked});
+ if(r.error){$("cperr").textContent=/duplicate|unique/i.test(r.error.message||"")?t("cpDup"):errText(r.error);return;}
+ await loadAdmin();toast(t("saved"));keepScroll();}
 /* ---------- Events ---------- */
 document.addEventListener("click",function(e){
  var el=e.target.closest("[data-act],[data-go],[data-p],[data-fav],[data-add],[data-q],[data-auth],#logo,#logout,#retry,#langs button");if(!el)return;
@@ -1161,6 +1251,7 @@ document.addEventListener("submit",async function(e){
  if(e.target.id==="bform"){return doAddBanner();}
  if(e.target.id==="eform"){return doEditProduct();}
  if(e.target.id==="msgform"){return doSend();}
+ if(e.target.id==="cpform"){return doAddCoupon();}
  if(e.target.id==="forgot"){return doForgot();}
  if(e.target.id==="recov"){return doRecov();}
  if(e.target.id==="rateform"){return doRate();}
@@ -1186,11 +1277,11 @@ document.addEventListener("submit",async function(e){
   var v=["f-name","f-phone","f-city","f-addr"].map(function(i){return $(i).value.trim();});
   if(v.some(function(x){return !x;})){$("err").textContent=t("fillAll");return;}
   S.busy=true;
-  var r2=await sb.rpc("place_order",{p_name:v[0],p_phone:v[1],p_city:v[2],p_address:v[3],p_loc:S.geo||null});
+  var r2=await sb.rpc("place_order",{p_name:v[0],p_phone:v[1],p_city:v[2],p_address:v[3],p_loc:S.geo||null,p_coupon:S.coupon?S.coupon.code:null});
   S.busy=false;
   if(r2.error){render();var er=$("err");if(er)er.textContent=errText(r2.error);return;}
   var o=await sb.from("orders").select("*,order_items(*)").eq("id",r2.data).single();
-  S.order=o.data;S.cart=[];S.geo=null;try{await loadUser();}catch(e5){}
+  S.order=o.data;S.cart=[];S.geo=null;S.coupon=null;try{await loadUser();}catch(e5){}
   await loadPublic();
   go("done");
  }
