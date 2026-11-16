@@ -150,6 +150,19 @@ details.panel[open] summary{margin-bottom:8px}
 .bub.me{align-self:flex-end;background:var(--brand);color:var(--brand-ink);border-color:transparent}
 .bub small{display:block;opacity:.65;font-size:11px;margin-top:2px}
 .convrow{all:unset;display:block;cursor:pointer;width:100%;padding:10px 0;border-bottom:1px solid var(--line);box-sizing:border-box}
+
+.loc{border-radius:14px;padding:14px;display:flex;flex-direction:column;gap:10px}
+.loc.miss{border:2px dashed var(--price);background:color-mix(in srgb,var(--price) 8%,var(--surface))}
+.loc.okk{border:2px solid var(--ok);background:color-mix(in srgb,var(--ok) 7%,var(--surface))}
+.locrow{display:flex;gap:12px;align-items:center}
+.locico{font-size:28px;line-height:1}
+.locico.ok{width:30px;height:30px;border-radius:50%;background:var(--ok);color:#fff;display:grid;place-items:center;font-size:17px;font-weight:700;flex:none}
+.locmap{width:100%;height:190px;border:0;border-radius:10px;background:var(--line);display:block;margin-top:8px}
+.locd summary{cursor:pointer;font-weight:600;padding:10px 12px;border:1px solid var(--line);border-radius:10px;list-style:none}
+.locd summary::-webkit-details-marker{display:none}
+.locd[open] summary{border-color:var(--ok)}
+.locd .row{margin-top:8px}
+@media(prefers-reduced-motion:no-preference){.loc.shake{animation:shk .45s}@keyframes shk{20%{transform:translateX(-7px)}40%{transform:translateX(7px)}60%{transform:translateX(-5px)}80%{transform:translateX(5px)}}}
 </style>
 <header>
   <div class="hrow">
@@ -374,12 +387,13 @@ function vCart(){
 function vCheckout(){
  if(!S.user||!lines().length)return vCart();
  var pr=S.profile||{};
+ if(!S.geo&&pr.addr_loc)S.geo=pr.addr_loc;
  return '<button class="crumb" type="button" data-go="cart">‹ '+t("back")+'</button><h1>'+t("checkout")+'</h1>'
   +'<form class="panel" id="chk" novalidate><label>'+t("name")+'<input class="f" id="f-name" autocomplete="name" value="'+esc(pr.full_name||"")+'"></label>'
   +'<label>'+t("phone")+'<input class="f" id="f-phone" type="tel" inputmode="tel" autocomplete="tel" dir="ltr" placeholder="0750 000 0000" value="'+esc(pr.phone||"")+'"></label>'
   +'<label>'+t("city")+'<input class="f" id="f-city" value="'+esc(pr.addr_city||({en:"Erbil",ar:"أربيل",ku:"هەولێر"})[S.lang])+'"></label>'
   +'<label>'+t("addr")+'<textarea class="f" id="f-addr" rows="3">'+esc(pr.addr_text||"")+'</textarea></label>'
-  +'<div><button class="btn ghost" type="button" data-act="geo">📍 '+t("geoBtn")+'</button><div class="from" id="geo-st">'+(S.geo?'✓ '+t("geoOk"):t("geoHint"))+'</div></div>'
+  +locCard()
   +'<div class="row" style="align-items:flex-end"><label style="flex:1">'+t("couponCode")+'<input class="f" id="f-coupon" dir="ltr" autocapitalize="characters" value="'+esc(S.coupon?S.coupon.code:"")+'"'+(S.coupon?' disabled':'')+'></label><button class="btn ghost" type="button" data-act="'+(S.coupon?'cprem':'cpapply')+'">'+(S.coupon?t("removeL"):t("applyL"))+'</button></div><div class="from" id="cpmsg">'+(S.coupon?'✓ '+t("cpApplied"):'')+'</div>'
   +'<div class="note" style="text-align:start;color:var(--ink)">'+t("cod")+'</div><div id="sumbox">'+sumHtml()+'</div>'
   +'<div id="err" style="color:var(--price);min-height:20px" role="alert"></div><button class="btn" type="submit"'+(S.busy?" disabled":"")+'>'+t("place")+'</button></form>';
@@ -564,7 +578,7 @@ function orderCards(items){
  if(!items.length)return '<div class="panel"><div class="from">'+t("noItems")+'</div></div>';
  return groupItems(items).map(function(g){var o=g[0].orders||{};
   return '<div class="panel"><div class="sum"><b dir="ltr">#'+g[0].order_id+(g.some(function(i){return i.status==="new";})?' <span class="pill">'+t("newBadge")+'</span>':'')+'</b><span class="from">'+esc((o.created_at||"").slice(0,10))+'</span></div>'
-   +'<div>'+t("customer")+': <b>'+esc(o.name)+'</b></div><div dir="ltr" style="text-align:start">'+esc(o.phone)+'</div>'+contactBtns(o.phone)+(S.shop&&S.shop.id===g[0].shop_id&&o.customer_id?'<button class="btn ghost" type="button" data-act="chatcust" data-id="'+g[0].shop_id+'" data-v="'+o.customer_id+'">💬 '+t("chatCust")+'</button>':'')+'<div>'+esc(o.city)+' · '+esc(o.address)+'</div>'+(o.location_url?'<a class="btn ghost" href="'+esc(o.location_url)+'" target="_blank" rel="noopener">📍 '+t("mapL")+'</a>':'')
+   +'<div>'+t("customer")+': <b>'+esc(o.name)+'</b></div><div dir="ltr" style="text-align:start">'+esc(o.phone)+'</div>'+contactBtns(o.phone)+(S.shop&&S.shop.id===g[0].shop_id&&o.customer_id?'<button class="btn ghost" type="button" data-act="chatcust" data-id="'+g[0].shop_id+'" data-v="'+o.customer_id+'">💬 '+t("chatCust")+'</button>':'')+'<div>'+esc(o.city)+' · '+esc(o.address)+'</div>'+locBlock(o.location_url)
    +g.map(function(i){return '<div class="offer"><div>'+num(i.qty)+' × '+esc(i.products?L(i.products,"name"):"")+szTag(i)+(i.shops?' <span class="from">('+esc(i.shops.name)+')</span>':'')+'<small>'+money(i.unit_price_iqd*i.qty)+'</small></div>'+stSel(i)+'</div>';}).join("")+'</div>';}).join("");}
 function mProducts(){
  if(S.edit){var ep=S.mine.filter(function(x){return x.id===S.edit;})[0];if(ep)return editForm(ep);S.edit=null;}
@@ -685,9 +699,11 @@ async function doAct(el){
    var dr=await sb.from("banners").delete().eq("id",id);if(dr.error)throw dr.error;await loadAdmin();await loadPublic();keepScroll();
   }else if(a==="geo"){
    if(!navigator.geolocation){toast(t("geoFail"));return;}
+   toast(t("locWorking"));
    navigator.geolocation.getCurrentPosition(function(pos){
     S.geo="https://www.google.com/maps?q="+pos.coords.latitude.toFixed(6)+","+pos.coords.longitude.toFixed(6);
-    var g=$("geo-st");if(g)g.textContent="✓ "+t("geoOk");
+    S.geoAcc=Math.round(pos.coords.accuracy||0);var gc=$("geo-card");if(gc)gc.outerHTML=locCard();
+    if(S.user)sb.rpc("save_address",{p_loc:S.geo}).then(function(){if(S.profile)S.profile.addr_loc=S.geo;},function(){});
    },function(){toast(t("geoFail"));},{enableHighAccuracy:true,timeout:15000});
   }else if(a==="shinfo"){
    var sp=$("si-phone").value.trim(),sa=$("si-addr").value.trim();
@@ -1212,7 +1228,7 @@ function compMap(){
 function admCoupons(){
  var l=S.adm.coupons||[],sn={};S.adm.shops.forEach(function(x){sn[x.id]=x.name;});
  var h='<form class="panel" id="cpform" novalidate><b>'+t("addCoupon")+'</b><label>'+t("couponCode")+'<input class="f" id="cp-code" dir="ltr" autocapitalize="characters" maxlength="24"></label>'
-  +'<label>'+t("couponShop")+'<select class="f" id="cp-shop"><option value="">'+t("chooseShop")+'</option>'+S.adm.shops.filter(function(x){return x.status==="approved";}).map(function(x){return '<option value="'+x.id+'">'+esc(x.name)+'</option>';}).join("")+'</select></label><label>'+t("couponKind")+'<select class="f" id="cp-kind"><option value="percent">'+t("kindPercent")+'</option><option value="fixed">'+t("kindFixed")+'</option></select></label>'
+  +'<label>'+t("couponShop")+'<input class="f" id="cp-shopq" type="search" autocomplete="off" placeholder="'+t("searchShop")+'"><select class="f" id="cp-shop">'+shopOpts("")+'</select></label><label>'+t("couponKind")+'<select class="f" id="cp-kind"><option value="percent">'+t("kindPercent")+'</option><option value="fixed">'+t("kindFixed")+'</option></select></label>'
   +'<label>'+t("couponValue")+'<input class="f" id="cp-val" type="number" inputmode="numeric" min="1" dir="ltr"></label>'
   +'<label>'+t("minOrder")+'<input class="f" id="cp-min" type="number" inputmode="numeric" min="0" dir="ltr" value="0"></label>'
   +'<label>'+t("maxUses")+'<input class="f" id="cp-max" type="number" inputmode="numeric" min="1" dir="ltr"></label>'
@@ -1239,6 +1255,37 @@ var T15={
 Object.keys(T15).forEach(function(k){Object.keys(T15[k]).forEach(function(x){T[k][x]=T15[k][x];});});
 function discByShop(items){var g={},o={},m={};items.forEach(function(i){var sid=i.shop_id||(S.shop&&S.shop.id);if(!i.orders||!i.orders.disc_shop_id||sid!==i.orders.disc_shop_id||i.status==="cancelled")return;var k=i.order_id;o[k]=i.orders;var x=g[k]||(g[k]={all:true});if(i.status!=="delivered")x.all=false;});Object.keys(g).forEach(function(k){if(g[k].all){var q=o[k];m[q.disc_shop_id]=(m[q.disc_shop_id]||0)+Number(q.disc_shop_iqd||0);}});return m;}
 function myCpPanel(){var l=S.myCoupons||[];if(!l.length)return "";return '<div class="panel"><b>'+t("myCodes")+'</b>'+l.map(function(c){return '<div class="sum"><b dir="ltr">'+esc(c.code)+'</b><span>'+(c.kind==="percent"?num(c.value)+'%':money(c.value))+(c.active?'':' · '+t("hidden"))+'</span></div>';}).join("")+'</div>';}
+
+var T16={en:{searchShop:"Search merchant…",noMatch:"No merchant found"},ar:{searchShop:"ابحث عن التاجر…",noMatch:"لا يوجد تاجر"},ku:{searchShop:"گەڕان بۆ فرۆشیار…",noMatch:"فرۆشیار نەدۆزرایەوە"}};
+Object.keys(T16).forEach(function(k){Object.keys(T16[k]).forEach(function(x){T[k][x]=T16[k][x];});});
+function shopOpts(q){
+ q=(q||"").trim().toLowerCase();
+ var l=S.adm.shops.filter(function(x){return x.status==="approved"&&(!q||(x.name||"").toLowerCase().indexOf(q)>-1);});
+ var one=q&&l.length===1;
+ return '<option value="">'+(q&&!l.length?t("noMatch"):t("chooseShop"))+'</option>'+l.map(function(x){return '<option value="'+x.id+'"'+(one?' selected':'')+'>'+esc(x.name)+'</option>';}).join("");}
+document.addEventListener("input",function(e){
+ if(e.target&&e.target.id==="cp-shopq"){var sel=$("cp-shop"),cur=sel.value;sel.innerHTML=shopOpts(e.target.value);if(cur&&sel.querySelector('option[value="'+cur+'"]'))sel.value=cur;}
+});
+
+var T17={
+ en:{locMissing:"Delivery location is missing",locMissingSub:"Required: the courier and the seller need your exact location on the map.",locBtn:"Get my location",locSaved:"Location saved",locUpdate:"Update",locOpen:"Open in Maps",locWeak:"The location is not very accurate. Go outside or turn on GPS, then update.",locRequired:"Please set your delivery location first.",locNone:"No location from the customer",locShow:"Show location on map",locRoute:"Start route",locMaps:"Apple Maps",locWorking:"Getting your location…"},
+ ar:{locMissing:"موقع التوصيل غير محدد",locMissingSub:"مطلوب: يحتاج السائق والتاجر إلى موقعك الدقيق على الخريطة.",locBtn:"تحديد موقعي",locSaved:"تم حفظ الموقع",locUpdate:"تحديث",locOpen:"فتح في الخرائط",locWeak:"دقة الموقع ضعيفة. اخرج إلى مكان مفتوح أو فعّل GPS ثم حدّث.",locRequired:"يرجى تحديد موقع التوصيل أولاً.",locNone:"لا يوجد موقع من العميل",locShow:"عرض الموقع على الخريطة",locRoute:"بدء المسار",locMaps:"خرائط Apple",locWorking:"جارٍ تحديد موقعك…"},
+ ku:{locMissing:"شوێنی گەیاندن دیاری نەکراوە",locMissingSub:"پێویستە: شوفێر و فرۆشیار پێویستیان بە شوێنی ورد هەیە لەسەر نەخشە.",locBtn:"شوێنی من دیاری بکە",locSaved:"شوێن پاشەکەوتکرا",locUpdate:"نوێکردنەوە",locOpen:"کردنەوە لە نەخشە",locWeak:"شوێنەکە زۆر ورد نییە. بچۆ دەرەوە یان GPS داگیرسێنە، پاشان نوێی بکەرەوە.",locRequired:"تکایە سەرەتا شوێنی گەیاندن دیاری بکە.",locNone:"کڕیار شوێنی نەناردووە",locShow:"پیشاندانی شوێن لەسەر نەخشە",locRoute:"دەستپێکردنی ڕێگا",locMaps:"نەخشەی Apple",locWorking:"شوێنەکەت دیاری دەکرێت…"}
+};
+Object.keys(T17).forEach(function(k){Object.keys(T17[k]).forEach(function(x){T[k][x]=T17[k][x];});});
+function llOf(u){var m=u&&/q=(-?[0-9.]+),(-?[0-9.]+)/.exec(u);return m?m[1]+","+m[2]:null;}
+function locCard(){
+ var ll=llOf(S.geo);
+ if(!ll)return '<div id="geo-card" class="loc miss"><div class="locrow"><span class="locico" aria-hidden="true">📍</span><div><b>'+t("locMissing")+'</b><div class="from">'+t("locMissingSub")+'</div></div></div><button class="btn" type="button" data-act="geo">📍 '+t("locBtn")+'</button></div>';
+ var acc=S.geoAcc||0;
+ return '<div id="geo-card" class="loc okk"><div class="locrow"><span class="locico ok" aria-hidden="true">✓</span><div><b>'+t("locSaved")+'</b><div class="from" dir="ltr" style="text-align:start">'+ll+(acc?' · ±'+acc+' m':'')+'</div></div></div>'
+  +(acc>100?'<div class="from" style="color:var(--price)">'+t("locWeak")+'</div>':'')
+  +'<iframe class="locmap" loading="lazy" title="map" src="https://maps.google.com/maps?q='+ll+'&z=17&output=embed"></iframe>'
+  +'<div class="row" style="flex-wrap:wrap"><button class="btn ghost" type="button" data-act="geo">↻ '+t("locUpdate")+'</button><a class="btn ghost" href="https://www.google.com/maps?q='+ll+'" target="_blank" rel="noopener">'+t("locOpen")+'</a></div></div>';}
+function locBlock(u){
+ var ll=llOf(u);
+ if(!ll)return '<div class="from" style="color:var(--price)">📍 '+t("locNone")+'</div>';
+ return '<details class="locd"><summary>📍 '+t("locShow")+'</summary><iframe class="locmap" loading="lazy" title="map" src="https://maps.google.com/maps?q='+ll+'&z=17&output=embed"></iframe><div class="row" style="flex-wrap:wrap"><a class="btn" href="https://www.google.com/maps/dir/?api=1&destination='+ll+'" target="_blank" rel="noopener">'+t("locRoute")+'</a><a class="btn ghost" href="https://maps.apple.com/?daddr='+ll+'" target="_blank" rel="noopener">'+t("locMaps")+'</a></div><div class="from" dir="ltr" style="text-align:start">'+ll+'</div></details>';}
 /* ---------- Events ---------- */
 document.addEventListener("click",function(e){
  var el=e.target.closest("[data-act],[data-go],[data-p],[data-fav],[data-add],[data-q],[data-auth],#logo,#logout,#retry,#langs button");if(!el)return;
@@ -1286,19 +1333,20 @@ document.addEventListener("submit",async function(e){
  if(e.target.id==="chk"){
   var v=["f-name","f-phone","f-city","f-addr"].map(function(i){return $(i).value.trim();});
   if(v.some(function(x){return !x;})){$("err").textContent=t("fillAll");return;}
+  if(!S.geo){var lc=$("geo-card");if(lc){lc.classList.remove("shake");void lc.offsetWidth;lc.classList.add("shake");lc.scrollIntoView({behavior:"smooth",block:"center"});}$("err").textContent=t("locRequired");return;}
   S.busy=true;
   var r2=await sb.rpc("place_order",{p_name:v[0],p_phone:v[1],p_city:v[2],p_address:v[3],p_loc:S.geo||null,p_coupon:S.coupon?S.coupon.code:null});
   S.busy=false;
   if(r2.error){render();var er=$("err");if(er)er.textContent=errText(r2.error);return;}
   var o=await sb.from("orders").select("*,order_items(*)").eq("id",r2.data).single();
-  S.order=o.data;S.cart=[];S.geo=null;S.coupon=null;try{await loadUser();}catch(e5){}
+  S.order=o.data;S.cart=[];try{await sb.rpc("save_address",{p_name:v[0],p_phone:v[1],p_city:v[2],p_addr:v[3],p_loc:S.geo});}catch(e6){}S.geo=null;S.geoAcc=0;S.coupon=null;try{await loadUser();}catch(e5){}
   await loadPublic();
   go("done");
  }
 });
 $("q").addEventListener("input",function(e){S.q=e.target.value;if(route()==="search")render();else go("search");});
 window.addEventListener("hashchange",onRoute);
-sb.auth.onAuthStateChange(function(ev){if(ev==="PASSWORD_RECOVERY"){S.recovery=true;setTimeout(function(){loadUser().then(function(){go("account");render();});},0);return;}if(ev==="SIGNED_OUT"){setTimeout(function(){S.user=null;S.profile=null;S.cart=[];S.favs=[];S.orders=[];S.shop=null;S.items=[];S.newCnt=0;S.unread=0;S.convs=[];S.chat=null;stopChatPoll();render();},0);}});
+sb.auth.onAuthStateChange(function(ev){if(ev==="PASSWORD_RECOVERY"){S.recovery=true;setTimeout(function(){loadUser().then(function(){go("account");render();});},0);return;}if(ev==="SIGNED_OUT"){setTimeout(function(){S.geo=null;S.geoAcc=0;S.user=null;S.profile=null;S.cart=[];S.favs=[];S.orders=[];S.shop=null;S.items=[];S.newCnt=0;S.unread=0;S.convs=[];S.chat=null;stopChatPoll();render();},0);}});
 render();
 Promise.all([loadPublic(),loadUser()]).then(onRoute).catch(function(){S.ready=true;S.loadErr=true;render();});
 })();
