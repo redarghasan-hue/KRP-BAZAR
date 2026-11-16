@@ -243,7 +243,7 @@ function toast(msg){var el=$("toast");el.innerHTML='<span>'+esc(msg)+'</span>';c
 function go(h){if(location.hash==="#"+h)render();else location.hash=h;}
 function cartCount(){return S.cart.reduce(function(a,i){return a+i.qty;},0);}
 function keepScroll(){var y=window.scrollY;render();window.scrollTo(0,y);}
-function errText(e){var m=(e&&e.message)||"";if(/unavailable item/.test(m))return t("unavailable");if(/missing fields/.test(m))return t("fillAll");if(/coupon expired/.test(m))return t("cpExpired");if(/coupon used/.test(m))return t("cpUsed");if(/coupon min/.test(m))return t("cpMin");if(/coupon first/.test(m))return t("cpFirst");if(/coupon invalid/.test(m))return t("cpInvalid");if(/rate limit/.test(m))return t("rateLimitMsg");if(/reason required/.test(m))return t("reasonNeeded");if(/invalid size/.test(m))return t("chooseSize");if(/account blocked/.test(m))return t("blockedMsg");if(/too many open/.test(m))return t("tooMany");if(/cannot cancel/.test(m))return t("cancelLate");return m||t("error");}
+function errText(e){var m=(e&&e.message)||"";if(/unavailable item/.test(m))return t("unavailable");if(/missing fields/.test(m))return t("fillAll");if(/coupon own/.test(m))return t("cpOwn");if(/coupon expired/.test(m))return t("cpExpired");if(/coupon used/.test(m))return t("cpUsed");if(/coupon min/.test(m))return t("cpMin");if(/coupon first/.test(m))return t("cpFirst");if(/coupon invalid/.test(m))return t("cpInvalid");if(/rate limit/.test(m))return t("rateLimitMsg");if(/reason required/.test(m))return t("reasonNeeded");if(/invalid size/.test(m))return t("chooseSize");if(/account blocked/.test(m))return t("blockedMsg");if(/too many open/.test(m))return t("tooMany");if(/cannot cancel/.test(m))return t("cancelLate");return m||t("error");}
 function needLogin(){S.authMsg=t("loginFirst");S.authMode="login";go("account");}
 
 /* ---------- Data ---------- */
@@ -530,15 +530,16 @@ async function refreshMine(){
  if(!S.shop||S.shop.status!=="approved"){S.mine=[];S.items=[];return;}
  var a=await sb.from("products").select("*").eq("shop_id",S.shop.id).eq("deleted",false).order("id",{ascending:false});
  S.mine=a.data||[];
- var b=await sb.from("order_items").select("*,orders(id,customer_id,name,phone,city,address,location_url,discount_iqd,created_at),products(name_en,name_ar,name_ku)").eq("shop_id",S.shop.id).order("id",{ascending:false});
+ var b=await sb.from("order_items").select("*,orders(id,customer_id,name,phone,city,address,location_url,discount_iqd,disc_shop_id,disc_shop_iqd,created_at),products(name_en,name_ar,name_ku)").eq("shop_id",S.shop.id).order("id",{ascending:false});
  S.items=b.data||[];
  var pa=await sb.from("payouts").select("*").eq("shop_id",S.shop.id).order("id",{ascending:false});S.payouts=pa.error?[]:(pa.data||[]);
+ var mc=await sb.from("coupons").select("*").eq("shop_id",S.shop.id).order("created_at",{ascending:false});S.myCoupons=mc.error?[]:(mc.data||[]);
  S.newCnt=countNew();}
 async function loadAdmin(){
  if(!S.profile||S.profile.role!=="admin"){S.adm=null;return;}
  var a=await sb.from("shops").select("*,profiles(full_name,phone)").order("created_at",{ascending:false});
  var b=await sb.from("products").select("*,shops(name)").eq("deleted",false).order("id",{ascending:false}).limit(300);
- var c=await sb.from("order_items").select("*,orders(id,customer_id,name,phone,city,address,location_url,discount_iqd,created_at),products(name_en,name_ar,name_ku),shops(name)").order("id",{ascending:false}).limit(1000);
+ var c=await sb.from("order_items").select("*,orders(id,customer_id,name,phone,city,address,location_url,discount_iqd,disc_shop_id,disc_shop_iqd,created_at),products(name_en,name_ar,name_ku),shops(name)").order("id",{ascending:false}).limit(1000);
  var d=await sb.from("settings").select("*").eq("key","default_commission_pct").maybeSingle();
  var bn=await sb.from("banners").select("*").order("id",{ascending:false});
  var cm=await sb.from("complaints").select("*,profiles(full_name,phone)").order("id",{ascending:false}).limit(200);
@@ -704,7 +705,7 @@ async function doAct(el){
    var cd=await sb.from("coupons").delete().eq("code",id);if(cd.error)throw cd.error;await loadAdmin();toast(t("deletedOk"));keepScroll();
   }else if(a==="cpapply"){
    var cc=($("f-coupon").value||"").trim().toUpperCase();if(!cc)return;
-   var cr=await sb.rpc("check_coupon",{p_code:cc,p_sub:totals().sub});
+   var cr=await sb.rpc("check_coupon",{p_code:cc});
    if(cr.error){$("cpmsg").textContent=errText(cr.error);return;}
    S.coupon={code:cc,discount:cr.data};
    $("f-coupon").disabled=true;el.dataset.act="cprem";el.textContent=t("removeL");
@@ -953,8 +954,8 @@ async function pollNew(silent){
  S.newCnt=n;drawNav();}
 
 function mEarn0(){
- var r=earnCalc(S.items),net=Math.round(r.sales-r.comm),pays=S.payouts||[],paid=pays.reduce(function(a,p){return a+Number(p.amount_iqd);},0);
- var h='<div class="panel"><div class="sum"><span>'+t("sales")+'</span><span>'+money(r.sales)+'</span></div><div class="sum"><span>'+t("commission")+'</span><span>'+money(Math.round(r.comm))+'</span></div><div class="sum"><span>'+t("net")+'</span><span>'+money(net)+'</span></div><div class="sum"><span>'+t("paidOut")+'</span><span>'+money(paid)+'</span></div><div class="sum total"><span>'+t("balanceL")+'</span><span class="price">'+money(net-paid)+'</span></div><div class="sum"><span>'+t("open")+'</span><span>'+money(r.open)+'</span></div><button class="btn ghost" type="button" data-act="csv" data-v="me">'+t("csv")+'</button></div>';
+ var r=earnCalc(S.items),ds=Math.round((discByShop(S.items)[S.shop.id])||0),net=Math.round(r.sales-r.comm)-ds,pays=S.payouts||[],paid=pays.reduce(function(a,p){return a+Number(p.amount_iqd);},0);
+ var h='<div class="panel"><div class="sum"><span>'+t("sales")+'</span><span>'+money(r.sales)+'</span></div><div class="sum"><span>'+t("commission")+'</span><span>'+money(Math.round(r.comm))+'</span></div>'+(ds?'<div class="sum"><span>'+t("discShare")+'</span><span>−'+money(ds)+'</span></div>':'')+'<div class="sum"><span>'+t("net")+'</span><span>'+money(net)+'</span></div><div class="sum"><span>'+t("paidOut")+'</span><span>'+money(paid)+'</span></div><div class="sum total"><span>'+t("balanceL")+'</span><span class="price">'+money(net-paid)+'</span></div><div class="sum"><span>'+t("open")+'</span><span>'+money(r.open)+'</span></div><button class="btn ghost" type="button" data-act="csv" data-v="me">'+t("csv")+'</button></div>';
  if(pays.length)h+='<div class="panel"><b>'+t("payHist")+'</b>'+pays.map(function(p){return '<div class="sum"><span class="from">'+esc((p.created_at||"").slice(0,10))+(p.note?' · '+esc(p.note):'')+'</span><span>'+money(Number(p.amount_iqd))+'</span></div>';}).join("")+'</div>';
  return h;}
 
@@ -965,15 +966,15 @@ function admCust(){
    +'<div class="row"><button class="btn ghost" type="button" data-act="blk" data-id="'+p.id+'" data-v="'+(!p.blocked)+'">'+(p.blocked?t("unblock"):t("block"))+'</button></div></div>';}).join(""):'<div class="from">'+t("noItems")+'</div>')+'</div>';}
 
 function admSettle(){
- var a=S.adm,g={},paid={},totC=0,totB=0;
+ var a=S.adm,g={},paid={},totC=0,totB=0,DS=discByShop(a.items);
  a.items.forEach(function(i){if(!i.shop_id||i.status!=="delivered")return;var s=g[i.shop_id]||(g[i.shop_id]={sales:0,comm:0}),m=i.unit_price_iqd*i.qty;s.sales+=m;s.comm+=m*Number(i.commission_pct)/100;});
  (a.pay||[]).forEach(function(p){paid[p.shop_id]=(paid[p.shop_id]||0)+Number(p.amount_iqd);});
  var cards=a.shops.map(function(s){
-  var x=g[s.id]||{sales:0,comm:0},comm=Math.round(x.comm),net=x.sales-comm,pd=paid[s.id]||0,bal=net-pd;
+  var x=g[s.id]||{sales:0,comm:0},comm=Math.round(x.comm),net=x.sales-comm-(DS[s.id]||0),pd=paid[s.id]||0,bal=net-pd;
   totC+=comm;totB+=bal;
   var hist=(a.pay||[]).filter(function(p){return p.shop_id===s.id;}).slice(0,3).map(function(p){return '<div class="from">'+esc((p.created_at||"").slice(0,10))+' · '+money(Number(p.amount_iqd))+(p.note?' · '+esc(p.note):'')+'</div>';}).join("");
   return '<div class="order"><div class="sum"><b>'+esc(s.name)+'</b></div>'
-   +'<div class="sum"><span>'+t("sales")+'</span><span>'+money(x.sales)+'</span></div><div class="sum"><span>'+t("commission")+'</span><span>'+money(comm)+'</span></div><div class="sum"><span>'+t("paidOut")+'</span><span>'+money(pd)+'</span></div><div class="sum total"><span>'+t("balanceL")+'</span><span class="price">'+money(bal)+'</span></div>'
+   +'<div class="sum"><span>'+t("sales")+'</span><span>'+money(x.sales)+'</span></div><div class="sum"><span>'+t("commission")+'</span><span>'+money(comm)+'</span></div>'+(DS[s.id]?'<div class="sum"><span>'+t("discShare")+'</span><span>−'+money(DS[s.id])+'</span></div>':'')+'<div class="sum"><span>'+t("paidOut")+'</span><span>'+money(pd)+'</span></div><div class="sum total"><span>'+t("balanceL")+'</span><span class="price">'+money(bal)+'</span></div>'
    +'<div class="row"><label style="flex:1">'+t("amountL")+'<input class="f" id="pay-'+s.id+'" type="number" inputmode="numeric" min="1" dir="ltr" value="'+(bal>0?bal:"")+'"></label></div>'
    +'<label>'+t("noteL")+'<input class="f" id="paynote-'+s.id+'"></label>'
    +'<div class="row"><button class="btn" type="button" data-act="paysave" data-id="'+s.id+'">'+t("recordPay")+'</button><button class="btn ghost" type="button" data-act="csv" data-v="'+s.id+'">'+t("csv")+'</button></div>'+hist+'</div>';}).join("");
@@ -1176,7 +1177,7 @@ function topList(map){return Object.keys(map).map(function(k){return [k,map[k]];
 function statsPanel(items,admin){
  var P=S.statP||"30",days=P==="all"?null:parseInt(P,10),now=Date.now(),cut=days?now-days*864e5:0;
  var its=items.filter(function(i){var d=i.orders&&i.orders.created_at?new Date(i.orders.created_at).getTime():0;return d>=cut;});
- var live={},ords={},sales=0,comm=0,canc=0,prods={},shopsM={},disc=0,N=days||30,keys=[],vals=[];
+ var live={},ords={},sales=0,comm=0,canc=0,prods={},shopsM={},disc=0,md=0,N=days||30,keys=[],vals=[];
  for(var k=N-1;k>=0;k--){keys.push(new Date(now-k*864e5).toISOString().slice(0,10));vals.push(0);}
  its.forEach(function(i){
   var o=i.orders||{},m=i.unit_price_iqd*i.qty;ords[i.order_id]=o;
@@ -1187,18 +1188,18 @@ function statsPanel(items,admin){
   if(admin){var sn=i.shops?i.shops.name:"?";shopsM[sn]=(shopsM[sn]||0)+m;}
   var ix=keys.indexOf((o.created_at||"").slice(0,10));if(ix>-1)vals[ix]+=m;
  });
- Object.keys(live).forEach(function(id){disc+=Number((ords[id]||{}).discount_iqd)||0;});
+ Object.keys(live).forEach(function(id){disc+=Number((ords[id]||{}).discount_iqd)||0;md+=Number((ords[id]||{}).disc_shop_iqd)||0;});
  var mx=Math.max.apply(null,vals.concat([1]));
  var h=tabs([["7","p7"],["30","p30"],["all","pAll"]],P,"statp")
   +'<div class="panel"><div class="sum"><span>'+t("totalOrders")+'</span><span>'+num(Object.keys(live).length)+'</span></div><div class="sum"><span>'+t("totalSales")+'</span><span>'+money(sales)+'</span></div><div class="sum"><span>'+t("commEarned")+'</span><span>'+money(Math.round(comm))+'</span></div>'
-  +(admin?'<div class="sum"><span>'+t("discountsL")+'</span><span>'+money(disc)+'</span></div><div class="sum total"><span>'+t("platformNet")+'</span><span class="price">'+money(Math.round(comm-disc))+'</span></div>':'')
+  +(admin?'<div class="sum"><span>'+t("discountsL")+'</span><span>'+money(disc)+'</span></div><div class="sum total"><span>'+t("platformNet")+'</span><span class="price">'+money(Math.round(comm-disc+md))+'</span></div>':'')
   +'<div class="sum"><span>'+t("cancelledL")+'</span><span>'+num(canc)+'</span></div></div>'
   +'<div class="panel"><b>'+t("dailySales")+'</b><div style="display:flex;align-items:flex-end;gap:2px;height:84px;margin-top:8px" role="img" aria-label="'+t("dailySales")+'">'+vals.map(function(v,ix){return '<span title="'+keys[ix]+': '+money(v)+'" style="flex:1;min-width:0;background:var(--brand);border-radius:2px 2px 0 0;height:'+Math.max(2,Math.round(v/mx*100))+'%;opacity:'+(v?1:.25)+'"></span>';}).join("")+'</div><div class="sum"><span class="from" dir="ltr">'+keys[0]+'</span><span class="from" dir="ltr">'+keys[keys.length-1]+'</span></div><div class="from">max '+money(mx===1&&!sales?0:mx)+'</div></div>';
  var tp=topList(prods);
  h+='<div class="panel"><b>'+t("topProducts")+'</b>'+(tp.length?tp.map(function(x){return '<div class="sum"><span>'+esc(x[0])+'</span><span>'+money(x[1])+'</span></div>';}).join(""):'<div class="from">'+t("noItems")+'</div>')+'</div>';
  if(admin){var ts=topList(shopsM);h+='<div class="panel"><b>'+t("topShops")+'</b>'+(ts.length?ts.map(function(x){return '<div class="sum"><span>'+esc(x[0])+'</span><span>'+money(x[1])+'</span></div>';}).join(""):'<div class="from">'+t("noItems")+'</div>')+'</div>';}
  return h;}
-function mEarn(){return mEarn0()+'<h2>'+t("statsT")+'</h2>'+statsPanel(S.items||[],false);}
+function mEarn(){return mEarn0()+myCpPanel()+'<h2>'+t("statsT")+'</h2>'+statsPanel(S.items||[],false);}
 
 function admReviews(){
  var l=(S.reviews||[]).slice(0,60),nm={};S.adm.shops.forEach(function(x){nm[x.id]=x.name;});
@@ -1209,9 +1210,9 @@ function compMap(){
  (S.adm.comp||[]).forEach(function(c){if(!c.order_id||!os[c.order_id])return;Object.keys(os[c.order_id]).forEach(function(sid){var b=by[sid]||(by[sid]={n:0,open:0});b.n++;if(c.status!=="resolved")b.open++;});});
  return {os:os,by:by};}
 function admCoupons(){
- var l=S.adm.coupons||[];
+ var l=S.adm.coupons||[],sn={};S.adm.shops.forEach(function(x){sn[x.id]=x.name;});
  var h='<form class="panel" id="cpform" novalidate><b>'+t("addCoupon")+'</b><label>'+t("couponCode")+'<input class="f" id="cp-code" dir="ltr" autocapitalize="characters" maxlength="24"></label>'
-  +'<label>'+t("couponKind")+'<select class="f" id="cp-kind"><option value="percent">'+t("kindPercent")+'</option><option value="fixed">'+t("kindFixed")+'</option></select></label>'
+  +'<label>'+t("couponShop")+'<select class="f" id="cp-shop"><option value="">'+t("chooseShop")+'</option>'+S.adm.shops.filter(function(x){return x.status==="approved";}).map(function(x){return '<option value="'+x.id+'">'+esc(x.name)+'</option>';}).join("")+'</select></label><label>'+t("couponKind")+'<select class="f" id="cp-kind"><option value="percent">'+t("kindPercent")+'</option><option value="fixed">'+t("kindFixed")+'</option></select></label>'
   +'<label>'+t("couponValue")+'<input class="f" id="cp-val" type="number" inputmode="numeric" min="1" dir="ltr"></label>'
   +'<label>'+t("minOrder")+'<input class="f" id="cp-min" type="number" inputmode="numeric" min="0" dir="ltr" value="0"></label>'
   +'<label>'+t("maxUses")+'<input class="f" id="cp-max" type="number" inputmode="numeric" min="1" dir="ltr"></label>'
@@ -1220,15 +1221,24 @@ function admCoupons(){
   +'<div id="cperr" style="color:var(--price);min-height:20px" role="alert"></div><button class="btn" type="submit">'+t("addCoupon")+'</button></form>';
  h+='<div class="panel">'+(l.length?l.map(function(c){
   var live=c.active&&(!c.ends_at||new Date(c.ends_at)>new Date())&&(c.max_uses==null||c.used_count<c.max_uses);
-  return '<div class="order"><div class="sum"><b dir="ltr">'+esc(c.code)+'</b><span class="pill">'+(live?t("show"):t("hidden"))+'</span></div><div class="from">'+(c.kind==="percent"?num(c.value)+'%':money(c.value))+(c.min_order_iqd?' · '+t("minOrder")+': '+money(c.min_order_iqd):'')+(c.first_order_only?' · '+t("firstOnly"):'')+'</div><div class="from">'+t("usedL")+': '+num(c.used_count)+(c.max_uses?' / '+num(c.max_uses):'')+(c.ends_at?' · '+t("untilL")+' '+esc(c.ends_at.slice(0,10)):'')+'</div>'
+  return '<div class="order"><div class="sum"><b dir="ltr">'+esc(c.code)+'</b><span class="pill">'+(live?t("show"):t("hidden"))+'</span></div><div class="from">'+esc(sn[c.shop_id]||"—")+' · '+(c.kind==="percent"?num(c.value)+'%':money(c.value))+(c.min_order_iqd?' · '+t("minOrder")+': '+money(c.min_order_iqd):'')+(c.first_order_only?' · '+t("firstOnly"):'')+'</div><div class="from">'+t("usedL")+': '+num(c.used_count)+(c.max_uses?' / '+num(c.max_uses):'')+(c.ends_at?' · '+t("untilL")+' '+esc(c.ends_at.slice(0,10)):'')+'</div>'
    +'<div class="row"><button class="btn ghost" type="button" data-act="cptoggle" data-id="'+esc(c.code)+'" data-v="'+(!c.active)+'">'+(c.active?t("hide"):t("show"))+'</button><button class="btn ghost" type="button" data-act="cpdel" data-id="'+esc(c.code)+'">'+t("delBtn")+'</button></div></div>';}).join(""):'<div class="from">'+t("noItems")+'</div>')+'</div>';
  return h;}
 async function doAddCoupon(){
  var code=$("cp-code").value.trim().toUpperCase(),kind=$("cp-kind").value,val=parseInt($("cp-val").value,10),mn=parseInt($("cp-min").value,10)||0,mx=parseInt($("cp-max").value,10),days=parseInt($("cp-days").value,10);
- if(!/^[A-Z0-9_-]{3,24}$/.test(code)||isNaN(val)||val<1||(kind==="percent"&&val>100)){$("cperr").textContent=t("fillAll");return;}
- var r=await sb.from("coupons").insert({code:code,kind:kind,value:val,min_order_iqd:mn,max_uses:isNaN(mx)?null:mx,ends_at:isNaN(days)?null:new Date(Date.now()+days*864e5).toISOString(),first_order_only:$("cp-first").checked});
+ if(!$("cp-shop").value||!/^[A-Z0-9_-]{3,24}$/.test(code)||isNaN(val)||val<1||(kind==="percent"&&val>100)){$("cperr").textContent=t("fillAll");return;}
+ var r=await sb.from("coupons").insert({shop_id:$("cp-shop").value,code:code,kind:kind,value:val,min_order_iqd:mn,max_uses:isNaN(mx)?null:mx,ends_at:isNaN(days)?null:new Date(Date.now()+days*864e5).toISOString(),first_order_only:$("cp-first").checked});
  if(r.error){$("cperr").textContent=/duplicate|unique/i.test(r.error.message||"")?t("cpDup"):errText(r.error);return;}
  await loadAdmin();toast(t("saved"));keepScroll();}
+
+var T15={
+ en:{couponShop:"Merchant",cpOwn:"You cannot use the coupon of your own shop.",myCodes:"My customer coupon codes (share them with your customers)",discShare:"Coupon discount (your share)",chooseShop:"Choose merchant"},
+ ar:{couponShop:"التاجر",cpOwn:"لا يمكنك استخدام قسيمة متجرك.",myCodes:"رموز القسائم لعملائي (شاركها مع عملائك)",discShare:"خصم القسيمة (حصتك)",chooseShop:"اختر التاجر"},
+ ku:{couponShop:"فرۆشیار",cpOwn:"ناتوانیت کۆپۆنی فرۆشگاکەی خۆت بەکاربهێنیت.",myCodes:"کۆدی کۆپۆنی کڕیارەکانم (بیدە بە کڕیارەکانت)",discShare:"داشکاندنی کۆپۆن (بەشی تۆ)",chooseShop:"فرۆشیار هەڵبژێرە"}
+};
+Object.keys(T15).forEach(function(k){Object.keys(T15[k]).forEach(function(x){T[k][x]=T15[k][x];});});
+function discByShop(items){var g={},o={},m={};items.forEach(function(i){var sid=i.shop_id||(S.shop&&S.shop.id);if(!i.orders||!i.orders.disc_shop_id||sid!==i.orders.disc_shop_id||i.status==="cancelled")return;var k=i.order_id;o[k]=i.orders;var x=g[k]||(g[k]={all:true});if(i.status!=="delivered")x.all=false;});Object.keys(g).forEach(function(k){if(g[k].all){var q=o[k];m[q.disc_shop_id]=(m[q.disc_shop_id]||0)+Number(q.disc_shop_iqd||0);}});return m;}
+function myCpPanel(){var l=S.myCoupons||[];if(!l.length)return "";return '<div class="panel"><b>'+t("myCodes")+'</b>'+l.map(function(c){return '<div class="sum"><b dir="ltr">'+esc(c.code)+'</b><span>'+(c.kind==="percent"?num(c.value)+'%':money(c.value))+(c.active?'':' · '+t("hidden"))+'</span></div>';}).join("")+'</div>';}
 /* ---------- Events ---------- */
 document.addEventListener("click",function(e){
  var el=e.target.closest("[data-act],[data-go],[data-p],[data-fav],[data-add],[data-q],[data-auth],#logo,#logout,#retry,#langs button");if(!el)return;
