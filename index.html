@@ -578,7 +578,7 @@ function stSel(it){
  return '<select data-cact="ist" data-id="'+it.id+'" aria-label="'+t("status")+'">'+o+'</select>';}
 function earnCalc(items){var r={sales:0,comm:0,open:0};
  items.forEach(function(i){var a=i.unit_price_iqd*i.qty;
-  if(i.status==="delivered"){r.sales+=a;r.comm+=a*Number(i.commission_pct)/100;}
+  if(i.status==="delivered"){r.sales+=a;r.comm+=commOf(i);}
   else if(i.status!=="cancelled")r.open+=a;});return r;}
 function tabs(list,cur,act){return '<div class="tabs" style="grid-template-columns:repeat('+Math.min(list.length,3)+',1fr)">'+list.map(function(x){return '<button type="button" data-act="'+act+'" data-v="'+x[0]+'" aria-pressed="'+(cur===x[0])+'">'+t(x[1])+(x[0]==="orders"&&S.newCnt?' ('+num(S.newCnt)+')':'')+'</button>';}).join("")+'</div>';}
 function orderCards(items){
@@ -623,18 +623,18 @@ function vAdmin(){
   var CM=compMap();
   h+='<div class="panel">'+(a.shops.length?"":'<div class="from">'+t("noItems")+'</div>')+a.shops.map(function(s){var ow=s.profiles||{};
    return '<div class="order"><div class="sum"><b>'+esc(s.name)+'</b><span class="pill">'+esc(sLabel(s.status))+'</span></div><div class="from">'+esc(ow.full_name||"")+' · <span dir="ltr">'+esc(ow.phone||"")+'</span></div><div class="from">'+(s.address?'📍 '+esc(s.address):'')+' <span dir="ltr">'+esc((a.sphone||{})[s.id]||"")+'</span></div>'+(CM.by[s.id]?'<div class="from">'+t("complaintsT")+': '+num(CM.by[s.id].n)+' ('+t("openL")+': '+num(CM.by[s.id].open)+')</div>':'')
-    +'<div class="row"><label style="flex:1">'+t("shopCommission")+'<input class="f" id="c-'+s.id+'" type="number" step="0.5" min="0" max="50" dir="ltr" placeholder="'+esc(a.def)+'" value="'+(s.commission_pct==null?"":s.commission_pct)+'"></label><button class="btn ghost" type="button" data-act="ccsave" data-id="'+s.id+'">'+t("save")+'</button></div>'
+
     +'<div class="row">'+(s.status!=="approved"?'<button class="btn" type="button" data-act="shst" data-id="'+s.id+'" data-v="approved">'+t("approve")+'</button>':'')+(s.status!=="suspended"?'<button class="btn ghost" type="button" data-act="shst" data-id="'+s.id+'" data-v="suspended">'+t("suspend")+'</button>':'')+'<button class="btn ghost" type="button" data-act="chatshop2" data-id="'+s.id+'">💬 '+t("chatShopBtn")+'</button></div></div>';}).join("")+'</div>';
  }else if(S.atab==="aprod"){
   h+='<div class="panel">'+a.prods.map(function(p){return '<div class="row">'+pic(p,"thumb")+'<div class="info"><div style="font-weight:500">'+esc(L(p,"name"))+'</div><div class="from">'+esc(p.shops?p.shops.name:"")+' · '+money(p.price_iqd)+'</div>'+(p.active?'':'<span class="pill">'+t("hidden")+'</span>')+featBtns(p)+'</div><button class="btn ghost" type="button" data-act="padm" data-id="'+p.id+'" data-v="'+(!p.active)+'">'+(p.active?t("hide"):t("show"))+'</button><button class="btn ghost" type="button" data-act="adel" data-id="'+p.id+'">'+t("delBtn")+'</button></div>'+(S.delP===p.id?'<div class="panel"><label>'+t("delReason")+'<textarea class="f" id="del-reason" rows="3"></textarea></label><div class="row"><button class="btn" type="button" data-act="delok" data-id="'+p.id+'">'+t("delConfirm")+'</button><button class="btn ghost" type="button" data-act="delcancel">'+t("cancel")+'</button></div></div>':'');}).join("")+'</div>';
  }else if(S.atab==="aord"){
   h+=orderCards(a.items.slice(0,100));
  }else if(S.atab==="cust"){h+=admCust();}else if(S.atab==="settle"){h+=admSettle();}else if(S.atab==="rev"){h+=admReviews();}else if(S.atab==="cpn"){h+=admCoupons();}else if(S.atab==="comp"){h+=admComp();}else if(S.atab==="banners"){h+=admBanners();}else if(S.atab==="set"){
-  h+='<div class="panel"><label>'+t("defaultCommission")+'<input class="f" id="d-comm" type="number" step="0.5" min="0" max="50" dir="ltr" value="'+esc(a.def)+'"></label><button class="btn" type="button" data-act="defsave">'+t("save")+'</button></div><div class="panel"><label>'+t("maxOpen")+'<input class="f" id="d-max" type="number" min="1" max="50" dir="ltr" value="'+esc(a.maxo)+'"></label><button class="btn" type="button" data-act="maxsave">'+t("save")+'</button></div>';
+  h+='<div class="panel"><div class="from">'+t("tierInfo")+'</div></div><div class="panel"><label>'+t("maxOpen")+'<input class="f" id="d-max" type="number" min="1" max="50" dir="ltr" value="'+esc(a.maxo)+'"></label><button class="btn" type="button" data-act="maxsave">'+t("save")+'</button></div>';
  }else{
   h+=statsPanel(a.items,true);
   var ords={},sales=0,comm=0;
-  a.items.forEach(function(i){ords[i.order_id]=1;var m=i.unit_price_iqd*i.qty;if(i.status!=="cancelled")sales+=m;if(i.status==="delivered")comm+=m*Number(i.commission_pct)/100;});
+  a.items.forEach(function(i){ords[i.order_id]=1;var m=i.unit_price_iqd*i.qty;if(i.status!=="cancelled")sales+=m;if(i.status==="delivered")comm+=commOf(i);});
   h+='<div class="panel"><div class="sum"><span>'+t("totalOrders")+'</span><span>'+num(Object.keys(ords).length)+'</span></div><div class="sum"><span>'+t("totalSales")+'</span><span>'+money(sales)+'</span></div><div class="sum"><span>'+t("commEarned")+'</span><span class="price">'+money(Math.round(comm))+'</span></div><div class="sum"><span>'+t("pendingShops")+'</span><span>'+num(a.shops.filter(function(s){return s.status==="pending";}).length)+'</span></div><div class="sum"><span>'+t("activeProducts")+'</span><span>'+num(a.prods.filter(function(p){return p.active;}).length)+'</span></div></div>';
  }
  return h+'</section>';}
@@ -994,7 +994,7 @@ function admCust(){
 
 function admSettle0(){
  var a=S.adm,g={},paid={},totC=0,totB=0,DS=discByShop(a.items);
- a.items.forEach(function(i){if(!i.shop_id||i.status!=="delivered")return;var s=g[i.shop_id]||(g[i.shop_id]={sales:0,comm:0}),m=i.unit_price_iqd*i.qty;s.sales+=m;s.comm+=m*Number(i.commission_pct)/100;});
+ a.items.forEach(function(i){if(!i.shop_id||i.status!=="delivered")return;var s=g[i.shop_id]||(g[i.shop_id]={sales:0,comm:0}),m=i.unit_price_iqd*i.qty;s.sales+=m;s.comm+=commOf(i);});
  (a.pay||[]).forEach(function(p){paid[p.shop_id]=(paid[p.shop_id]||0)+Number(p.amount_iqd);});
  var cards=a.shops.map(function(s){
   var x=g[s.id]||{sales:0,comm:0},comm=Math.round(x.comm),net=x.sales-comm-(DS[s.id]||0),pd=paid[s.id]||0,bal=net-pd;
@@ -1009,12 +1009,12 @@ function admSettle0(){
 
 function exportCsv(sid){
  var src=(sid==="me")?(S.items||[]):(S.adm?S.adm.items:[]);
- var rows=[["order","date","shop","product","qty","unit_price_iqd","line_iqd","commission_pct","commission_iqd","net_iqd"]];
+ var rows=[["order","date","shop","product","qty","unit_price_iqd","line_iqd","commission_unit_iqd_or_pct","commission_iqd","net_iqd"]];
  src.forEach(function(i){
   if(i.status!=="delivered")return;
   if(sid!=="me"&&sid!=="all"&&i.shop_id!==sid)return;
-  var a=i.unit_price_iqd*i.qty,c=Math.round(a*Number(i.commission_pct)/100),o=i.orders||{};
-  rows.push([i.order_id,(o.created_at||"").slice(0,10),i.shops?i.shops.name:(S.shop?S.shop.name:""),(i.products?(i.products.name_en||i.products.name_ar||i.products.name_ku||""):"")+(i.size?" ("+i.size+")":""),i.qty,i.unit_price_iqd,a,i.commission_pct,c,a-c]);});
+  var a=i.unit_price_iqd*i.qty,c=Math.round(commOf(i)),o=i.orders||{};
+  rows.push([i.order_id,(o.created_at||"").slice(0,10),i.shops?i.shops.name:(S.shop?S.shop.name:""),(i.products?(i.products.name_en||i.products.name_ar||i.products.name_ku||""):"")+(i.size?" ("+i.size+")":""),i.qty,i.unit_price_iqd,a,(i.commission_unit_iqd!=null?i.commission_unit_iqd:i.commission_pct+"%"),c,a-c]);});
  var txt="﻿"+rows.map(function(r){return r.map(function(x){var s=String(x==null?"":x);if(typeof x==="string"&&/^[=+\-@]/.test(s))s="'"+s;return /[",\r\n]/.test(s)?'"'+s.replace(/"/g,'""')+'"':s;}).join(",");}).join("\r\n");
  try{
   var bl=new Blob([txt],{type:"text/csv;charset=utf-8"}),u=URL.createObjectURL(bl),a2=document.createElement("a");
@@ -1043,7 +1043,7 @@ en:{intro:"These terms apply to everyone who uses KRP Bazar, operated by [OPERAT
 ["Payment.","For now, you pay in cash when your package is delivered, directly to the seller or to the courier who delivers it. KRP Bazar does not collect the money for the goods. Other payment methods may be added later."],
 ["Delivery.","Each seller delivers their own packages, themselves or through their own couriers, to the address you enter. A map location is required so the seller can find you. An order with items from several sellers is delivered in several packages. Each package has its own status and delivery time, which the seller sets and which you can follow in the app, so packages may arrive on different days. Delivery is charged per seller: it is free when the items from one seller total 100,000 IQD or more and costs 3,000 IQD below that, unless the app shows otherwise. The delivery fee is paid to the seller who delivers. Check the address, map location and phone number carefully."],
 ["Returns and complaints.","You may return or report a problem with an order within [RETURN DAYS] days of delivery if the item is faulty, wrong or not as described. Contact support in the app (Account, Contact support)."],
-["Sellers.","Sellers must register a shop, which KRP Bazar may approve, refuse or suspend. Sellers must describe products truthfully, keep stock and prices current, deliver what customers ordered and handle orders promptly. Sellers deliver the packages, collect the cash payment from the customer on delivery and pay KRP Bazar a commission on delivered sales, currently 5 % unless agreed otherwise. The commission is settled with KRP Bazar as agreed with the seller."],
+["Sellers.","Sellers must register a shop, which KRP Bazar may approve, refuse or suspend. Sellers must describe products truthfully, keep stock and prices current, deliver what customers ordered and handle orders promptly. Sellers deliver the packages, collect the cash payment from the customer on delivery and pay KRP Bazar a commission on delivered sales, a fixed amount per item depending on its price (500 IQD for each started 25,000 IQD of the item price, shown in the app) unless agreed otherwise. The commission is settled with KRP Bazar as agreed with the seller."],
 ["Coupons.","A coupon code applies to the products of the seller it was issued for, can be used once per customer, and may expire or be withdrawn. The seller cannot use their own coupon. The discount is shared between the seller and KRP Bazar as shown in the app or agreed with the seller."],
 ["Forbidden items and conduct.","It is forbidden to offer illegal, stolen, counterfeit, dangerous or regulated goods without the needed permission, to post false reviews, to abuse other users or to misuse the platform. KRP Bazar may remove products and block accounts that break these rules."],
 ["Reviews.","Only customers with a delivered order may rate a seller. Reviews must be honest and respectful. KRP Bazar may remove reviews that break these terms."],
@@ -1058,7 +1058,7 @@ ar:{intro:"تنطبق هذه الشروط على كل من يستخدم KRP Baza
 ["الدفع.","حالياً تدفع نقداً عند استلام الشحنة، مباشرة إلى البائع أو إلى المندوب الذي يسلّمها. لا تحصّل KRP Bazar ثمن البضاعة. قد تُضاف طرق دفع أخرى لاحقاً."],
 ["التوصيل.","يوصّل كل بائع شحناته بنفسه أو عبر مناديبه إلى العنوان الذي تدخله. موقع الخريطة مطلوب ليتمكن البائع من الوصول إليك. الطلب الذي يضم منتجات من عدة بائعين يُسلَّم في عدة شحنات، ولكل شحنة حالتها وموعد توصيلها الذي يحدده البائع ويمكنك متابعته في التطبيق، لذا قد تصل الشحنات في أيام مختلفة. يُحتسب التوصيل لكل بائع: مجاني عندما يبلغ مجموع منتجات البائع الواحد 100,000 دينار أو أكثر، ويكلف 3,000 دينار لما دون ذلك، ما لم يظهر التطبيق خلاف ذلك. تُدفع أجرة التوصيل للبائع الذي يوصّل. تحقق من العنوان وموقع الخريطة ورقم الهاتف."],
 ["الإرجاع والشكاوى.","يحق لك إرجاع الطلب أو الإبلاغ عن مشكلة خلال [RETURN DAYS] يوماً من التسليم إذا كان المنتج تالفاً أو خاطئاً أو غير مطابق للوصف. تواصل مع الدعم في التطبيق (حسابي، تواصل مع الدعم)."],
-["البائعون.","يسجّل البائع متجراً توافق عليه KRP Bazar أو ترفضه أو توقفه. يلتزم البائع بوصف المنتجات بصدق، وإبقاء المخزون والأسعار محدثة، وتسليم ما طلبه العميل، ومعالجة الطلبات بسرعة. يوصّل البائع الشحنات ويستلم الدفع نقداً من العميل عند التسليم ويدفع لـ KRP Bazar عمولة على المبيعات المسلّمة، حالياً 5% ما لم يُتفق خلافه. تُسوّى العمولة مع KRP Bazar حسب الاتفاق مع البائع."],
+["البائعون.","يسجّل البائع متجراً توافق عليه KRP Bazar أو ترفضه أو توقفه. يلتزم البائع بوصف المنتجات بصدق، وإبقاء المخزون والأسعار محدثة، وتسليم ما طلبه العميل، ومعالجة الطلبات بسرعة. يوصّل البائع الشحنات ويستلم الدفع نقداً من العميل عند التسليم ويدفع لـ KRP Bazar عمولة على المبيعات المسلّمة، مبلغاً ثابتاً لكل قطعة حسب سعرها (500 دينار عن كل 25,000 دينار أو جزء منها من سعر القطعة، كما يظهر في التطبيق) ما لم يُتفق خلافه. تُسوّى العمولة مع KRP Bazar حسب الاتفاق مع البائع."],
 ["القسائم.","يسري رمز القسيمة على منتجات البائع الذي صدر له، ويمكن استخدامه مرة واحدة لكل عميل، وقد تنتهي صلاحيته أو يُسحب. لا يمكن للبائع استخدام قسيمته بنفسه. يُقسّم الخصم بين البائع وKRP Bazar كما يظهر في التطبيق أو كما يُتفق مع البائع."],
 ["الممنوعات.","يمنع عرض سلع غير قانونية أو مسروقة أو مقلدة أو خطرة أو تتطلب ترخيصاً دون ترخيص، ونشر تقييمات كاذبة، وإساءة معاملة المستخدمين أو إساءة استخدام المنصة. لـ KRP Bazar حذف المنتجات وحظر الحسابات المخالفة."],
 ["التقييمات.","يمكن فقط للعملاء الذين استلموا طلباً تقييم البائع. يجب أن تكون التقييمات صادقة ومحترمة، ولـ KRP Bazar حذف ما يخالف الشروط."],
@@ -1212,7 +1212,7 @@ function statsPanel(items,admin){
   var o=i.orders||{},m=i.unit_price_iqd*i.qty;ords[i.order_id]=o;
   if(i.status==="cancelled"){canc++;return;}
   live[i.order_id]=1;sales+=m;
-  if(i.status==="delivered")comm+=m*Number(i.commission_pct)/100;
+  if(i.status==="delivered")comm+=commOf(i);
   var pn=i.products?L(i.products,"name"):"?";prods[pn]=(prods[pn]||0)+m;
   if(admin){var sn=i.shops?i.shops.name:"?";shopsM[sn]=(shopsM[sn]||0)+m;}
   var ix=keys.indexOf((o.created_at||"").slice(0,10));if(ix>-1)vals[ix]+=m;
@@ -1363,7 +1363,7 @@ function discAgg(items,fn){var g={},o={},m={};items.forEach(function(i){var sid=
 function discPlat(items){return discAgg(items,function(q){return Number(q.discount_iqd||0)-Number(q.disc_shop_iqd||0);});}
 function mEarn1(){
  var r=earnCalc(S.items),sid=S.shop.id,ds=Math.round(discByShop(S.items)[sid]||0),dp=Math.round(discPlat(S.items)[sid]||0),comm=Math.round(r.comm),net=Math.round(r.sales-r.comm)-ds,pays=S.payouts||[],paid=pays.reduce(function(a,p){return a+Number(p.amount_iqd);},0),owe=comm-dp-paid;
- var h='<div class="panel"><div class="from">'+t("oweNote")+'</div><div class="sum"><span>'+t("sales")+'</span><span>'+money(r.sales)+'</span></div><div class="sum"><span>'+t("commission")+'</span><span>'+money(comm)+'</span></div>'
+ var h='<div class="panel"><div class="from">'+t("oweNote")+'</div><div class="from">'+t("tierShort")+'</div><div class="sum"><span>'+t("sales")+'</span><span>'+money(r.sales)+'</span></div><div class="sum"><span>'+t("commission")+'</span><span>'+money(comm)+'</span></div>'
   +(dp?'<div class="sum"><span>'+t("krpShare")+'</span><span>−'+money(dp)+'</span></div>':'')
   +'<div class="sum"><span>'+t("paidToKrp")+'</span><span>'+money(paid)+'</span></div><div class="sum total"><span>'+t("owedL")+'</span><span class="price">'+money(owe)+'</span></div>'
   +'<div class="sum"><span>'+t("net")+(ds?' ('+t("discShare")+' −'+money(ds)+')':'')+'</span><span>'+money(net)+'</span></div><div class="sum"><span>'+t("open")+'</span><span>'+money(r.open)+'</span></div><button class="btn ghost" type="button" data-act="csv" data-v="me">'+t("csv")+'</button></div>';
@@ -1371,7 +1371,7 @@ function mEarn1(){
  return h;}
 function admSettle(){
  var a=S.adm,g={},paid={},totC=0,totB=0,DP=discPlat(a.items);
- a.items.forEach(function(i){if(!i.shop_id||i.status!=="delivered")return;var s=g[i.shop_id]||(g[i.shop_id]={sales:0,comm:0}),m=i.unit_price_iqd*i.qty;s.sales+=m;s.comm+=m*Number(i.commission_pct)/100;});
+ a.items.forEach(function(i){if(!i.shop_id||i.status!=="delivered")return;var s=g[i.shop_id]||(g[i.shop_id]={sales:0,comm:0}),m=i.unit_price_iqd*i.qty;s.sales+=m;s.comm+=commOf(i);});
  (a.pay||[]).forEach(function(p){paid[p.shop_id]=(paid[p.shop_id]||0)+Number(p.amount_iqd);});
  var cards=a.shops.map(function(s){
   var x=g[s.id]||{sales:0,comm:0},comm=Math.round(x.comm),dp=Math.round(DP[s.id]||0),pd=paid[s.id]||0,owe=comm-dp-pd;
@@ -1385,6 +1385,14 @@ function admSettle(){
    +'<div class="row"><button class="btn" type="button" data-act="paysave" data-id="'+s.id+'">'+t("recvPay")+'</button><button class="btn ghost" type="button" data-act="csv" data-v="'+s.id+'">'+t("csv")+'</button></div>'+hist+'</div>';}).join("");
  var late={};a.items.forEach(function(i){if(isLate(i))late[i.order_id+"-"+i.shop_id]=1;});
  return '<div class="panel"><div class="sum"><span>'+t("commEarned")+'</span><span>'+money(totC)+'</span></div><div class="sum total"><span>'+t("owedByShop")+'</span><span class="price">'+money(totB)+'</span></div>'+(Object.keys(late).length?'<div class="sum"><span class="late-t">⚠ '+t("lateCnt")+'</span><b class="late-t">'+num(Object.keys(late).length)+'</b></div>':'')+'<button class="btn ghost" type="button" data-act="csv" data-v="all">'+t("allShops")+'</button></div><div class="panel">'+(cards||'<div class="from">'+t("noItems")+'</div>')+'</div>';}
+
+var T20={
+ en:{tierInfo:"Your profit per item (fixed): 500 IQD for each started 25,000 IQD of the price. Up to 25,000 = 500, up to 50,000 = 1,000, up to 75,000 = 1,500 and so on.",tierShort:"KRP BAZAR commission: 500 IQD per started 25,000 IQD of the item price (per item)."},
+ ar:{tierInfo:"ربحك الثابت لكل قطعة: 500 دينار عن كل 25,000 دينار من السعر (أو جزء منها). حتى 25,000 = 500، حتى 50,000 = 1,000، حتى 75,000 = 1,500 وهكذا.",tierShort:"عمولة KRP BAZAR: 500 دينار عن كل 25,000 دينار (أو جزء منها) من سعر القطعة."},
+ ku:{tierInfo:"قازانجی جێگیرت بۆ هەر یەکەیەک: ٥٠٠ دینار بۆ هەر ٢٥,٠٠٠ دیناری نرخ (یان بەشێکی). تا ٢٥,٠٠٠ = ٥٠٠، تا ٥٠,٠٠٠ = ١,٠٠٠، تا ٧٥,٠٠٠ = ١,٥٠٠ و هتد.",tierShort:"کۆمیسیۆنی KRP BAZAR: ٥٠٠ دینار بۆ هەر ٢٥,٠٠٠ دیناری نرخی یەکە (یان بەشێکی)."}
+};
+Object.keys(T20).forEach(function(k){Object.keys(T20[k]).forEach(function(x){T[k][x]=T20[k][x];});});
+function commOf(i){var q=Number(i.qty)||0;if(i.commission_unit_iqd!=null)return Number(i.commission_unit_iqd)*q;return i.unit_price_iqd*q*Number(i.commission_pct||0)/100;}
 /* ---------- Events ---------- */
 document.addEventListener("click",function(e){
  var el=e.target.closest("[data-act],[data-go],[data-p],[data-fav],[data-add],[data-q],[data-auth],#logo,#logout,#retry,#langs button");if(!el)return;
