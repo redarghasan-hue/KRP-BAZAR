@@ -191,6 +191,15 @@ details.panel[open] summary{margin-bottom:8px}
 .prow span:first-child{color:var(--muted);font-size:13px;flex:none}
 .prow span:last-child{font-weight:500;text-align:end;min-width:0;overflow-wrap:anywhere}
 .optl{font-size:12px;color:var(--muted)}
+
+.sbar{display:flex;height:12px;border-radius:6px;overflow:hidden;background:var(--line)}
+.sbar i{display:block;height:100%}
+.sb-m{background:#2d6a4f}.sb-d{background:#d98b00}.sb-a{background:#1d3557}
+.sdot{display:inline-block;width:10px;height:10px;border-radius:50%;margin-inline-end:6px}
+.srow{display:flex;justify-content:space-between;align-items:baseline;gap:10px}
+.srow small{display:block;color:var(--muted);font-size:12px;font-weight:400}
+.ssum{display:flex;gap:8px;flex-wrap:wrap;font-size:13px}
+.ssum span{background:var(--bg,#f4f4f4);border:1px solid var(--line);border-radius:8px;padding:3px 8px}
 </style>
 <header>
   <div class="hrow">
@@ -1422,7 +1431,7 @@ function checkOrdNew(silent){
  S.ordNew=cnt;}
 function discAgg(items,fn){var g={},o={},m={};items.forEach(function(i){var sid=i.shop_id||(S.shop&&S.shop.id);if(!i.orders||!i.orders.disc_shop_id||sid!==i.orders.disc_shop_id||i.status==="cancelled")return;var k=i.order_id;o[k]=i.orders;var x=g[k]||(g[k]={all:true});if(i.status!=="delivered")x.all=false;});Object.keys(g).forEach(function(k){if(g[k].all){var q=o[k];m[q.disc_shop_id]=(m[q.disc_shop_id]||0)+fn(q);}});return m;}
 function discPlat(items){return discAgg(items,function(q){return Number(q.discount_iqd||0)-Number(q.disc_shop_iqd||0);});}
-function mEarn1(){
+function mEarn1base(){
  var r=earnCalc(S.items),sid=S.shop.id,ds=Math.round(discByShop(S.items)[sid]||0),dp=Math.round(discPlat(S.items)[sid]||0),comm=Math.round(r.comm),net=Math.round(r.sales-r.comm)-ds,pays=S.payouts||[],paid=pays.reduce(function(a,p){return a+Number(p.amount_iqd);},0),owe=comm-dp-paid;
  var h='<div class="panel"><div class="from">'+t("oweNote")+'</div><div class="from">'+t("tierShort")+'</div><div class="sum"><span>'+t("sales")+'</span><span>'+money(r.sales)+'</span></div><div class="sum"><span>'+t("commission")+'</span><span>'+money(comm)+'</span></div>'
   +(dp?'<div class="sum"><span>'+t("krpShare")+'</span><span>−'+money(dp)+'</span></div>':'')
@@ -1430,7 +1439,7 @@ function mEarn1(){
   +'<div class="sum"><span>'+t("net")+(ds?' ('+t("discShare")+' −'+money(ds)+')':'')+'</span><span>'+money(net)+'</span></div><div class="sum"><span>'+t("open")+'</span><span>'+money(r.open)+'</span></div><button class="btn ghost" type="button" data-act="csv" data-v="me">'+t("csv")+'</button></div>';
  if(pays.length)h+='<div class="panel"><b>'+t("payHist2")+'</b>'+pays.map(function(p){return '<div class="sum"><span class="from">'+esc((p.created_at||"").slice(0,10))+(p.note?' · '+esc(p.note):'')+'</span><span>'+money(Number(p.amount_iqd))+'</span></div>';}).join("")+'</div>';
  return h;}
-function admSettle(){
+function admSettleBase(){
  var a=S.adm,g={},paid={},totC=0,totB=0,DP=discPlat(a.items);
  a.items.forEach(function(i){if(!i.shop_id||i.status!=="delivered")return;var s=g[i.shop_id]||(g[i.shop_id]={sales:0,comm:0}),m=i.unit_price_iqd*i.qty;s.sales+=m;s.comm+=commOf(i);});
  (a.pay||[]).forEach(function(p){paid[p.shop_id]=(paid[p.shop_id]||0)+Number(p.amount_iqd);});
@@ -1438,7 +1447,7 @@ function admSettle(){
   var x=g[s.id]||{sales:0,comm:0},comm=Math.round(x.comm),dp=Math.round(DP[s.id]||0),pd=paid[s.id]||0,owe=comm-dp-pd;
   totC+=comm;totB+=owe;
   var hist=(a.pay||[]).filter(function(p){return p.shop_id===s.id;}).slice(0,3).map(function(p){return '<div class="from">'+esc((p.created_at||"").slice(0,10))+' · '+money(Number(p.amount_iqd))+(p.note?' · '+esc(p.note):'')+'</div>';}).join("");
-  return '<div class="order"><div class="sum"><b>'+esc(s.name)+'</b></div>'
+  return '<div class="order"><div class="sum"><b>'+esc(s.name)+'</b></div>'+splitRows(splitFor(a.items,s.id))
    +'<div class="sum"><span>'+t("sales")+'</span><span>'+money(x.sales)+'</span></div><div class="sum"><span>'+t("commission")+'</span><span>'+money(comm)+'</span></div>'+(dp?'<div class="sum"><span>'+t("krpShare")+'</span><span>−'+money(dp)+'</span></div>':'')
    +'<div class="sum"><span>'+t("receivedL")+'</span><span>'+money(pd)+'</span></div><div class="sum total"><span>'+t("owedByShop")+'</span><span class="price">'+money(owe)+'</span></div>'
    +'<div class="row"><label style="flex:1">'+t("amountL")+'<input class="f" id="pay-'+s.id+'" type="number" inputmode="numeric" min="1" dir="ltr" value="'+(owe>0?owe:"")+'"></label></div>'
@@ -1560,7 +1569,7 @@ function ledgerOrders(){
   g.forEach(function(i){if(i.status==="cancelled"){canc++;return;}sales+=i.unit_price_iqd*i.qty;if(i.status==="delivered"){comm+=commOf(i);done++;}});
   var st=canc===g.length?"p25Cancelled":(done+canc===g.length?"p25Done":"p25Open");
   return '<div class="order"><div class="sum"><b dir="ltr">#'+g[0].order_id+'</b><span class="pill">'+t(st)+'</span></div><div class="from">'+esc((o.created_at||"").slice(0,10))+' · '+esc(o.name||"")+'</div>'
-   +'<div class="sum"><span>'+t("p25Sales")+'</span><span>'+money(sales)+'</span></div>'+(done?'<div class="sum"><span>'+t("p25Comm")+'</span><span>'+money(Math.round(comm))+'</span></div>':'')+'</div>';}).join("")+'</div>';}
+   +'<div class="sum"><span>'+t("p25Sales")+'</span><span>'+money(sales)+'</span></div>'+(done?'<div class="sum"><span>'+t("p25Comm")+'</span><span>'+money(Math.round(comm))+'</span></div>'+splitRows(splitFor(g,g[0].shop_id)):'')+'</div>';}).join("")+'</div>';}
 function vLedger(){
  var back='<button class="crumb" type="button" data-go="account">‹ '+t("p25Back")+'</button>';
  if(!S.user)return back+'<div class="empty"><span>'+t("loginFirst")+'</span></div>';
@@ -1570,6 +1579,35 @@ function vLedger(){
  if(adm){if(!S.adm)return h+'<div class="empty">'+t("p25Loading")+'</div>';return h+admSettle();}
  return h+mEarn1()+ledgerOrders();}
 async function setAvatarUrl(u){var r=await sb.rpc("set_avatar",{p_url:u});if(r.error)throw r.error;var p=await sb.from("profiles").select("*").eq("id",S.user.id).maybeSingle();if(p.data)S.profile=p.data;}
+
+var T26={
+ en:{p26Title:"Who gets what (delivered packages)",p26Cash:"Collected from customers",p26Merch:"Merchant (goods)",p26MerchS:"Sales − commission − coupon share",p26Deliv:"Courier (delivery)",p26DelivS:"Delivery fees (the delivering merchant keeps them)",p26Admin:"Admin (KRP BAZAR)",p26AdminS:"Commission − coupon share of KRP BAZAR",p26Hint:"The merchant collects the cash and pays the admin share to KRP BAZAR. Everything else stays with the merchant."},
+ ar:{p26Title:"من يحصل على ماذا (الطرود المسلّمة)",p26Cash:"المبلغ المحصّل من العملاء",p26Merch:"التاجر (البضاعة)",p26MerchS:"المبيعات − العمولة − حصة الكوبون",p26Deliv:"المُوصِّل (التوصيل)",p26DelivS:"رسوم التوصيل (يحتفظ بها التاجر الذي يوصّل)",p26Admin:"الإدارة (KRP BAZAR)",p26AdminS:"العمولة − حصة KRP BAZAR من الكوبون",p26Hint:"يستلم التاجر المبلغ نقداً ويدفع حصة الإدارة إلى KRP BAZAR. والباقي يبقى للتاجر."},
+ ku:{p26Title:"کێ چی وەردەگرێت (ئەو پاکێتانەی گەیەندراون)",p26Cash:"پارەی وەرگیراو لە کڕیار",p26Merch:"بازرگان (کاڵا)",p26MerchS:"فرۆشتن − کۆمیسیۆن − بەشی کوپۆن",p26Deliv:"گەیەنەر (گەیاندن)",p26DelivS:"کرێی گەیاندن (ئەو بازرگانەی دەیگەیەنێت بۆی دەمێنێتەوە)",p26Admin:"بەڕێوەبەر (KRP BAZAR)",p26AdminS:"کۆمیسیۆن − بەشی KRP BAZAR لە کوپۆن",p26Hint:"بازرگان پارە بە نەقد وەردەگرێت و بەشی بەڕێوەبەر دەدات بە KRP BAZAR. ئەوی تر بۆ بازرگان دەمێنێتەوە."}
+};
+Object.keys(T26).forEach(function(k){Object.keys(T26[k]).forEach(function(x){T[k][x]=T26[k][x];});});
+function splitFor(items,sid){
+ var g={},r={sales:0,comm:0,fee:0};
+ items.forEach(function(i){var sh=i.shop_id||(S.shop&&S.shop.id);if(sh!==sid)return;(g[i.order_id]=g[i.order_id]||[]).push(i);
+  if(i.status==="delivered"){r.sales+=i.unit_price_iqd*i.qty;r.comm+=commOf(i);}});
+ Object.keys(g).forEach(function(k){var it=g[k],all=0,live=it.filter(function(i){return i.status!=="cancelled";});
+  it.forEach(function(i){all+=i.unit_price_iqd*i.qty;});
+  if(live.length&&live.every(function(i){return i.status==="delivered";}))r.fee+=(all>=100000?0:3000);});
+ var ds=Math.round(discByShop(items)[sid]||0),dp=Math.round(discPlat(items)[sid]||0),comm=Math.round(r.comm);
+ return {cash:Math.round(r.sales)+r.fee-ds-dp,merch:Math.round(r.sales)-comm-ds,deliv:r.fee,admin:comm-dp};}
+function splitSum(list){return list.reduce(function(a,x){a.cash+=x.cash;a.merch+=x.merch;a.deliv+=x.deliv;a.admin+=x.admin;return a;},{cash:0,merch:0,deliv:0,admin:0});}
+function splitRows(x){return '<div class="ssum"><span><i class="sdot sb-m"></i>'+money(x.merch)+'</span><span><i class="sdot sb-d"></i>'+money(x.deliv)+'</span><span><i class="sdot sb-a"></i>'+money(x.admin)+'</span></div>';}
+function splitPanel(x){
+ var tot=Math.max(1,Math.abs(x.merch)+Math.abs(x.deliv)+Math.abs(x.admin));
+ function w(v){return Math.max(0,Math.round(Math.abs(v)*100/tot));}
+ function row(cls,l,sub,v){return '<div class="srow"><span><i class="sdot '+cls+'"></i><b>'+l+'</b><small>'+sub+'</small></span><b>'+money(v)+'</b></div>';}
+ return '<div class="panel"><b>'+t("p26Title")+'</b>'
+  +'<div class="sum total"><span>'+t("p26Cash")+'</span><span class="price">'+money(x.cash)+'</span></div>'
+  +'<div class="sbar" role="img" aria-label="'+t("p26Title")+'"><i class="sb-m" style="width:'+w(x.merch)+'%"></i><i class="sb-d" style="width:'+w(x.deliv)+'%"></i><i class="sb-a" style="width:'+w(x.admin)+'%"></i></div>'
+  +row("sb-m",t("p26Merch"),t("p26MerchS"),x.merch)+row("sb-d",t("p26Deliv"),t("p26DelivS"),x.deliv)+row("sb-a",t("p26Admin"),t("p26AdminS"),x.admin)
+  +'<div class="from">'+t("p26Hint")+'</div></div>';}
+function mEarn1(){return splitPanel(splitFor(S.items||[],S.shop.id))+mEarn1base();}
+function admSettle(){var a=S.adm;return splitPanel(splitSum(a.shops.map(function(sh){return splitFor(a.items,sh.id);})))+admSettleBase();}
 /* ---------- Events ---------- */
 document.addEventListener("click",function(e){
  var el=e.target.closest("[data-act],[data-go],[data-p],[data-fav],[data-add],[data-q],[data-auth],#logo,#logout,#retry,#langs button");if(!el)return;
