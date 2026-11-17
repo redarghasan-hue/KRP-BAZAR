@@ -177,6 +177,20 @@ details.panel[open] summary{margin-bottom:8px}
 .gbtn{display:flex;align-items:center;justify-content:center;gap:10px;width:100%}
 .orl{display:flex;align-items:center;gap:10px;color:var(--muted);font-size:13px;margin:4px 0}
 .orl:before,.orl:after{content:"";flex:1;height:1px;background:var(--line)}
+
+.acard{display:flex;flex-direction:column;align-items:center;gap:8px;text-align:center;padding:18px 14px;background:var(--surface);border:1px solid var(--line);border-radius:16px}
+.av{width:92px;height:92px;border-radius:50%;object-fit:cover;background:var(--brand,#2d6a4f);color:#fff;display:flex;align-items:center;justify-content:center;font-size:36px;font-weight:600;overflow:hidden}
+.av img{width:100%;height:100%;object-fit:cover;display:block}
+.aname{font-size:20px;font-weight:600}
+.avbtns{display:flex;gap:8px;flex-wrap:wrap;justify-content:center}
+.avbtns .btn,.avbtns label.btn{width:auto;padding:8px 14px;font-size:14px;cursor:pointer}
+.avbtns input[type=file]{display:none}
+.prows{gap:0;padding:4px 14px}
+.prow{display:flex;justify-content:space-between;align-items:baseline;gap:12px;padding:12px 0;border-bottom:1px solid var(--line)}
+.prow:last-child{border-bottom:0}
+.prow span:first-child{color:var(--muted);font-size:13px;flex:none}
+.prow span:last-child{font-weight:500;text-align:end;min-width:0;overflow-wrap:anywhere}
+.optl{font-size:12px;color:var(--muted)}
 </style>
 <header>
   <div class="hrow">
@@ -466,16 +480,21 @@ function vAccount(){
    +'<button class="btn" type="submit"'+(S.busy?" disabled":"")+'>'+(reg?t("register"):t("login"))+'</button>'+(reg?'':'<button class="crumb" type="button" data-act="forgot">'+t("forgot")+'</button>')+'</form>';
  }
  var pr=S.profile||{},role=pr.role||"customer";if(role!=="admin"&&S.shop)role="merchant";
- var h='<h1>'+t("welcome")+(pr.full_name?", "+esc(pr.full_name):"")+'</h1>'+(pr.blocked?'<div class="msg">'+t("blockedMsg")+'</div>':'')
-  +'<div class="panel"><div dir="ltr" style="text-align:start">'+esc(S.user.email)+'</div><div>'+t("role")+': <span class="pill">'+esc(t("roles")[role]||role)+'</span></div>'
-  +'<button class="btn ghost" type="button" data-go="chats">💬 '+t("chatT")+(S.unread?' ('+num(S.unread)+')':'')+'</button><button class="btn ghost" type="button" data-go="support">'+t("contactSupport")+'</button><button class="btn ghost" type="button" id="logout">'+t("logout")+'</button></div>'
-  +'<section><h2>'+t("myOrders")+'</h2><div class="panel">';
- if(!S.orders.length)h+='<div class="from">'+t("noOrders")+'</div>';
- markSeen();
- S.orders.forEach(function(o){
-  h+='<div class="order"><div class="sum"><b dir="ltr">#'+o.id+'</b><span class="price">'+money(orderTotal(o))+'</span></div>'+pkgBlock(o)+rateBtns(o)+cancelBtn(o)+'</div>';
- });
- return h+'</div></section>'+vShop()+vAdmin();
+ var staff=(role==="admin"||role==="merchant");
+ var h=(pr.blocked?'<div class="msg">'+t("blockedMsg")+'</div>':'')+vProfileCard(pr,role)
+  +'<div class="panel"><button class="btn ghost" type="button" data-go="chats">💬 '+t("chatT")+(S.unread?' ('+num(S.unread)+')':'')+'</button>'
+  +(staff?'<button class="btn" type="button" data-go="ledger">🧾 '+t("p25Ledger")+'</button>':'')
+  +'<button class="btn ghost" type="button" data-go="support">'+t("contactSupport")+'</button><button class="btn ghost" type="button" id="logout">'+t("logout")+'</button></div>';
+ if(!staff){
+  h+='<section><h2>'+t("myOrders")+'</h2><div class="panel">';
+  if(!S.orders.length)h+='<div class="from">'+t("noOrders")+'</div>';
+  markSeen();
+  S.orders.forEach(function(o){
+   h+='<div class="order"><div class="sum"><b dir="ltr">#'+o.id+'</b><span class="price">'+money(orderTotal(o))+'</span></div>'+pkgBlock(o)+rateBtns(o)+cancelBtn(o)+'</div>';
+  });
+  h+='</div></section>';
+ }
+ return h+vShop()+vAdmin();
 }
 /* ---------- Router ---------- */
 function route(){return (location.hash||"#home").slice(1)||"home";}
@@ -503,6 +522,7 @@ function render(){
  else if(r==="chats"){h=vChats();active="account";}
  else if((m=r.match(/^chat-(\d+)$/))){h=vChat(+m[1]);active="account";}
  else if(r==="terms"||r==="privacy"){h=vLegal(r);active="account";}
+ else if(r==="ledger"){h=vLedger();active="account";}
  else if(r==="account"){h=vAccount()+legalLinks();active="account";}
  else{h=vHome();}
  $("main").innerHTML=h;
@@ -513,6 +533,7 @@ function render(){
 }
 async function onRoute(){
  if(route()==="account"&&S.user){await loadOrders();try{await refreshShop();await refreshMine();await loadAdmin();}catch(e){}}
+ if(route()==="ledger"&&S.user){try{await refreshShop();await refreshMine();await loadAdmin();}catch(e){}}
  var rr=route(),mm=rr.match(/^(shop|rate)-([0-9a-f-]{36})$/);
  if(mm){try{var sv=await sb.from("shops").select("id,name,logo_url,address").eq("id",mm[2]).maybeSingle();S.viewShop=sv.data;if(S.user&&!S.orders.length)await loadOrders();if(mm[1]==="rate"){var ex=S.reviews.filter(function(x){return x.shop_id===mm[2]&&S.user&&x.user_id===S.user.id;})[0];S.rate={shopId:mm[2],rating:ex?ex.rating:0,comment:ex&&ex.comment?ex.comment:""};}}catch(e){}}
  if(rr==="support"&&S.user){try{await loadOrders();await loadComplaints();}catch(e){}}
@@ -698,6 +719,7 @@ async function doAddProduct(){
 async function doAct(el){
  var a=el.dataset.act,id=el.dataset.id,v=el.dataset.v;
  if(a==="tab"){S.tab=v;keepScroll();return;}
+ if(a==="avdel"){try{await setAvatarUrl(null);toast(t("saved"));keepScroll();}catch(e){toast(errText(e));}return;}
  if(a==="forgot"){S.authMode="forgot";S.authErr="";S.authMsg="";render();return;}
  if(a==="login"){S.authMode="login";S.authErr="";S.authMsg="";render();return;}
  if(a==="star"){if(S.rate){var cc=$("r-comment");if(cc)S.rate.comment=cc.value;S.rate.rating=parseInt(v,10);}keepScroll();return;}
@@ -821,6 +843,7 @@ async function doAct(el){
   }
  }catch(e){toast(errText(e));}}
 async function doChange(el){
+ if(el.dataset.cact==="avatar"){var af=el.files[0];if(!af)return;try{toast(t("uploading"));var au=await uploadImg(af,320);await setAvatarUrl(au);toast(t("saved"));keepScroll();}catch(e){toast(errText(e));}return;}
  if(el.dataset.cact==="logo"){var lf=el.files[0];if(!lf)return;try{toast(t("uploading"));var lu=await uploadImg(lf,300);await upd("shops",{logo_url:lu},"id",S.shop.id);await refreshShop();toast(t("saved"));keepScroll();}catch(e){toast(errText(e));}return;}
  if(el.dataset.cact==="eta"){try{var eo=el.dataset.id,es=el.dataset.sid,ev=el.value||null;var er=await sb.from("order_items").update({eta_date:ev}).eq("order_id",eo).eq("shop_id",es);if(er.error)throw er.error;[S.items,S.adm?S.adm.items:[]].forEach(function(l){l.forEach(function(i){if(String(i.order_id)===String(eo)&&i.shop_id===es)i.eta_date=ev;});});toast(t("saved"));keepScroll();}catch(e0){toast(errText(e0));}return;}
  var id=el.dataset.id,v=el.value;
@@ -1514,6 +1537,39 @@ async function doComplete(){
  var r=await sb.rpc("complete_profile",{p_name:v[0],p_phone:v[1],p_city:v[2],p_addr:v[3],p_terms:true});
  if(r.error){$("cerr").textContent=errText(r.error);return;}
  await loadUser();toast(t("saved"));go("home");render();}
+
+var T25={
+ en:{p25Addr:"Address",p25PhotoAdd:"Add photo",p25PhotoChange:"Change photo",p25PhotoRemove:"Remove",p25Optional:"Profile photo (optional)",p25Ledger:"Settlement",p25LedgerSub:"Sales, commission and payments at a glance",p25LedgerOrders:"Orders",p25Done:"Delivered",p25Open:"Open",p25Cancelled:"Cancelled",p25Sales:"Sales",p25Comm:"Commission",p25Missing:"Not set",p25Back:"Back to account",p25Loading:"Loading…"},
+ ar:{p25Addr:"العنوان",p25PhotoAdd:"إضافة صورة",p25PhotoChange:"تغيير الصورة",p25PhotoRemove:"إزالة",p25Optional:"الصورة الشخصية (اختياري)",p25Ledger:"المحاسبة",p25LedgerSub:"المبيعات والعمولة والدفعات في لمحة",p25LedgerOrders:"الطلبات",p25Done:"تم التسليم",p25Open:"مفتوح",p25Cancelled:"ملغي",p25Sales:"المبيعات",p25Comm:"العمولة",p25Missing:"غير محدد",p25Back:"العودة إلى الحساب",p25Loading:"جارٍ التحميل…"},
+ ku:{p25Addr:"ناونیشان",p25PhotoAdd:"زیادکردنی وێنە",p25PhotoChange:"گۆڕینی وێنە",p25PhotoRemove:"لابردن",p25Optional:"وێنەی پرۆفایل (ئارەزوومەندانە)",p25Ledger:"حیساب",p25LedgerSub:"فرۆشتن، کۆمیسیۆن و پارەدانەکان بە یەک نیگا",p25LedgerOrders:"داواکارییەکان",p25Done:"گەیەندرا",p25Open:"کراوە",p25Cancelled:"هەڵوەشێنراوە",p25Sales:"فرۆشتن",p25Comm:"کۆمیسیۆن",p25Missing:"دیاری نەکراوە",p25Back:"گەڕانەوە بۆ هەژمار",p25Loading:"چاوەڕێ بکە…"}
+};
+Object.keys(T25).forEach(function(k){Object.keys(T25[k]).forEach(function(x){T[k][x]=T25[k][x];});});
+function avatarEl(pr,size){var nm=(pr&&pr.full_name)||(S.user&&S.user.email)||"?",ch=String(nm).trim().charAt(0).toUpperCase();
+ return '<div class="av" style="width:'+size+'px;height:'+size+'px;font-size:'+Math.round(size*0.4)+'px">'+(pr&&pr.avatar_url?'<img src="'+esc(pr.avatar_url)+'" alt="" loading="lazy">':esc(ch))+'</div>';}
+function prow(l,v,ltr){return '<div class="prow"><span>'+l+'</span><span'+(ltr?' dir="ltr"':'')+'>'+(v?esc(v):'<span class="optl">'+t("p25Missing")+'</span>')+'</span></div>';}
+function vProfileCard(pr,role){
+ return '<div class="acard">'+avatarEl(pr,92)+'<div class="aname">'+esc(pr.full_name||S.user.email)+'</div><span class="pill">'+esc(t("roles")[role]||role)+'</span>'
+  +'<div class="avbtns"><label class="btn ghost">'+t(pr.avatar_url?"p25PhotoChange":"p25PhotoAdd")+'<input type="file" accept="image/*" data-cact="avatar"></label>'+(pr.avatar_url?'<button class="btn ghost" type="button" data-act="avdel">'+t("p25PhotoRemove")+'</button>':'')+'</div>'
+  +'<div class="optl">'+t("p25Optional")+'</div></div>'
+  +'<div class="panel prows">'+prow(t("name"),pr.full_name)+prow(t("email"),S.user.email,true)+prow(t("phone"),pr.phone,true)+prow(t("city"),pr.addr_city)+prow(t("p25Addr"),pr.addr_text)+'</div>';}
+function ledgerOrders(){
+ var gs=groupItems(S.items||[]);
+ if(!gs.length)return '<div class="panel"><div class="from">'+t("noItems")+'</div></div>';
+ return '<h2>'+t("p25LedgerOrders")+'</h2><div class="panel">'+gs.map(function(g){
+  var o=g[0].orders||{},sales=0,comm=0,done=0,canc=0;
+  g.forEach(function(i){if(i.status==="cancelled"){canc++;return;}sales+=i.unit_price_iqd*i.qty;if(i.status==="delivered"){comm+=commOf(i);done++;}});
+  var st=canc===g.length?"p25Cancelled":(done+canc===g.length?"p25Done":"p25Open");
+  return '<div class="order"><div class="sum"><b dir="ltr">#'+g[0].order_id+'</b><span class="pill">'+t(st)+'</span></div><div class="from">'+esc((o.created_at||"").slice(0,10))+' · '+esc(o.name||"")+'</div>'
+   +'<div class="sum"><span>'+t("p25Sales")+'</span><span>'+money(sales)+'</span></div>'+(done?'<div class="sum"><span>'+t("p25Comm")+'</span><span>'+money(Math.round(comm))+'</span></div>':'')+'</div>';}).join("")+'</div>';}
+function vLedger(){
+ var back='<button class="crumb" type="button" data-go="account">‹ '+t("p25Back")+'</button>';
+ if(!S.user)return back+'<div class="empty"><span>'+t("loginFirst")+'</span></div>';
+ var adm=S.profile&&S.profile.role==="admin";
+ if(!adm&&!S.shop)return back+'<div class="empty"><span>'+t("noItems")+'</span></div>';
+ var h=back+'<h1>'+t("p25Ledger")+'</h1><div class="from">'+t("p25LedgerSub")+'</div>';
+ if(adm){if(!S.adm)return h+'<div class="empty">'+t("p25Loading")+'</div>';return h+admSettle();}
+ return h+mEarn1()+ledgerOrders();}
+async function setAvatarUrl(u){var r=await sb.rpc("set_avatar",{p_url:u});if(r.error)throw r.error;var p=await sb.from("profiles").select("*").eq("id",S.user.id).maybeSingle();if(p.data)S.profile=p.data;}
 /* ---------- Events ---------- */
 document.addEventListener("click",function(e){
  var el=e.target.closest("[data-act],[data-go],[data-p],[data-fav],[data-add],[data-q],[data-auth],#logo,#logout,#retry,#langs button");if(!el)return;
