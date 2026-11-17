@@ -208,6 +208,15 @@ details.panel[open] summary{margin-bottom:8px}
 .phs label.add{width:72px;height:72px;border-radius:10px;border:1.5px dashed var(--line);display:flex;flex-direction:column;align-items:center;justify-content:center;font-size:11px;color:var(--muted);cursor:pointer;text-align:center;gap:2px}
 .phs label.add b{font-size:22px;line-height:1}
 .phs input[type=file]{display:none}
+
+.utiles{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.ut{background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:12px;display:flex;flex-direction:column;gap:2px;min-width:0}
+.ut b{font-size:26px;line-height:1.1}
+.ut span{font-size:13px;color:var(--muted)}
+.ut small{font-size:12px;color:var(--muted)}
+.ut.on b{color:#1b8a4b}
+.dot{display:inline-block;width:9px;height:9px;border-radius:50%;background:#1b8a4b;margin-inline-end:6px}
+.dot.off{background:#b5b5b5}
 </style>
 <header>
   <div class="hrow">
@@ -640,7 +649,8 @@ async function loadAdmin(){
  var mx=await sb.from("settings").select("*").eq("key","max_open_orders").maybeSingle();
  S.adm={cust:pf.error?[]:(pf.data||[]),pay:po.error?[]:(po.data||[]),maxo:mx.data?mx.data.value:"3",shops:a.data||[],prods:b.data||[],items:c.data||[],def:d.data?d.data.value:"5",comp:(cm.data||[]),banners:(bn.data||[])};
  var cpn=await sb.from("coupons").select("*").order("created_at",{ascending:false});S.adm.coupons=cpn.error?[]:(cpn.data||[]);
- var sc2=await sb.from("shop_contacts").select("*");S.adm.sphone={};(sc2.data||[]).forEach(function(x){S.adm.sphone[x.shop_id]=x.phone;});}
+ var sc2=await sb.from("shop_contacts").select("*");S.adm.sphone={};(sc2.data||[]).forEach(function(x){S.adm.sphone[x.shop_id]=x.phone;});
+ await loadUserStats();}
 function groupItems(items){var g={},ord=[];items.forEach(function(i){var k=i.order_id;if(!g[k]){g[k]=[];ord.push(k);}g[k].push(i);});return ord.map(function(k){return g[k];});}
 function stSel(it){
  var cur=STATUS.indexOf(it.status);
@@ -703,6 +713,7 @@ function vAdmin(){
  }else if(S.atab==="cust"){h+=admCust();}else if(S.atab==="settle"){h+=admSettle();}else if(S.atab==="rev"){h+=admReviews();}else if(S.atab==="cpn"){h+=admCoupons();}else if(S.atab==="comp"){h+=admComp();}else if(S.atab==="banners"){h+=admBanners();}else if(S.atab==="set"){
   h+='<div class="panel"><div class="from">'+t("tierInfo")+'</div></div><div class="panel"><label>'+t("maxOpen")+'<input class="f" id="d-max" type="number" min="1" max="50" dir="ltr" value="'+esc(a.maxo)+'"></label><button class="btn" type="button" data-act="maxsave">'+t("save")+'</button></div>';
  }else{
+  h+=userStatsPanel();
   h+=statsPanel(a.items,true);
   var ords={},sales=0,comm=0;
   a.items.forEach(function(i){ords[i.order_id]=1;var m=i.unit_price_iqd*i.qty;if(i.status!=="cancelled")sales+=m;if(i.status==="delivered")comm+=commOf(i);});
@@ -737,6 +748,7 @@ async function doAddProduct(){
 async function doAct(el){
  var a=el.dataset.act,id=el.dataset.id,v=el.dataset.v;
  if(a==="tab"){S.tab=v;keepScroll();return;}
+ if(a==="usrefresh"){await loadUserStats();keepScroll();return;}
  if(a==="phdel"){var pl=phList(v);pl.splice(parseInt(id,10),1);var pb=$("ph-"+v);if(pb)pb.innerHTML=phInner(v);return;}
  if(a==="avdel"){try{await setAvatarUrl(null);toast(t("saved"));keepScroll();}catch(e){toast(errText(e));}return;}
  if(a==="forgot"){S.authMode="forgot";S.authErr="";S.authMsg="";render();return;}
@@ -1073,7 +1085,7 @@ function mEarn0(){
 function admCust(){
  var l=(S.adm.cust||[]).filter(function(p){return p.role!=="admin";});
  return '<div class="panel">'+(l.length?l.map(function(p){
-  return '<div class="order"><div class="sum"><b>'+esc(p.full_name||"—")+'</b>'+(p.blocked?'<span class="pill">'+t("blockedL")+'</span>':'')+'</div><div class="from"><span dir="ltr">'+esc(p.phone||"")+'</span> · '+esc((p.created_at||"").slice(0,10))+'</div>'+contactBtns(p.phone)
+  return '<div class="order"><div class="sum"><b><i class="dot'+(isOnline(p.id)?'':' off')+'"></i>'+esc(p.full_name||"—")+'</b>'+(p.blocked?'<span class="pill">'+t("blockedL")+'</span>':'')+'</div><div class="from"><span dir="ltr">'+esc(p.phone||"")+'</span> · '+esc((p.created_at||"").slice(0,10))+'</div>'+contactBtns(p.phone)
    +'<div class="row"><button class="btn ghost" type="button" data-act="blk" data-id="'+p.id+'" data-v="'+(!p.blocked)+'">'+(p.blocked?t("unblock"):t("block"))+'</button></div></div>';}).join(""):'<div class="from">'+t("noItems")+'</div>')+'</div>';}
 
 function admSettle0(){
@@ -1635,6 +1647,30 @@ function phInner(key){var l=phList(key);
   +(l.length<3?'<label class="add"><b>+</b>'+t("p27Add")+'<input type="file" accept="image/*" data-cact="phadd" data-v="'+key+'"></label>':'');}
 function phBox(key){return '<div><div class="from">'+t("p27Photos")+'</div><div class="phs" id="ph-'+key+'">'+phInner(key)+'</div></div>';}
 function phGrid(urls){if(!urls||!urls.length)return "";return '<div class="phs">'+urls.map(function(u){return '<a class="ph" href="'+esc(u)+'" target="_blank" rel="noopener"><img src="'+esc(u)+'" alt="" loading="lazy"></a>';}).join("")+'</div>';}
+
+var T28={
+ en:{usT:"Users",usTotal:"Registered users",usOnline:"Online now",usOffline:"Offline",usMerch:"Merchants",usCust:"Customers",usDay:"Active in 24 h",usWeek:"Active in 7 days",usNew:"New in 7 days",usOn:"online",usNote:"Online = active in the last 3 minutes. Only registered users are counted, not visitors without an account.",usRefresh:"Refresh",usLast:"Last seen",usNone:"User statistics are not available yet."},
+ ar:{usT:"المستخدمون",usTotal:"المستخدمون المسجلون",usOnline:"متصل الآن",usOffline:"غير متصل",usMerch:"التجار",usCust:"العملاء",usDay:"نشط خلال 24 ساعة",usWeek:"نشط خلال 7 أيام",usNew:"جدد خلال 7 أيام",usOn:"متصل",usNote:"متصل = نشط خلال آخر 3 دقائق. يُحتسب المستخدمون المسجلون فقط، وليس الزوار بدون حساب.",usRefresh:"تحديث",usLast:"آخر ظهور",usNone:"إحصائيات المستخدمين غير متاحة بعد."},
+ ku:{usT:"بەکارهێنەران",usTotal:"بەکارهێنەرانی تۆمارکراو",usOnline:"ئێستا ئۆنلاینە",usOffline:"ئۆفلاینە",usMerch:"بازرگانان",usCust:"کڕیاران",usDay:"چالاک لە ٢٤ کاتژمێر",usWeek:"چالاک لە ٧ ڕۆژ",usNew:"نوێ لە ٧ ڕۆژ",usOn:"ئۆنلاین",usNote:"ئۆنلاین = چالاک لە ٣ خولەکی ڕابردوودا. تەنها بەکارهێنەرە تۆمارکراوەکان دەژمێردرێن، نەک سەردانکەرانی بێ هەژمار.",usRefresh:"نوێکردنەوە",usLast:"دوایین جار",usNone:"ئامارەکانی بەکارهێنەران هێشتا بەردەست نین."}
+};
+Object.keys(T28).forEach(function(k){Object.keys(T28[k]).forEach(function(x){T[k][x]=T28[k][x];});});
+async function loadUserStats(){
+ if(!S.adm)return;
+ try{var r=await sb.rpc("admin_user_stats");S.adm.us=r.error?null:r.data;}catch(e){S.adm.us=null;}
+ try{var ls=await sb.from("profiles").select("id,last_seen").order("last_seen",{ascending:false,nullsFirst:false}).limit(300);S.adm.seen={};(ls.data||[]).forEach(function(x){if(x.last_seen)S.adm.seen[x.id]=x.last_seen;});}catch(e){S.adm.seen={};}}
+function isOnline(id){var ts=S.adm&&S.adm.seen&&S.adm.seen[id];return !!ts&&(Date.now()-new Date(ts).getTime())<180000;}
+function userStatsPanel(){
+ var u=S.adm&&S.adm.us;
+ if(!u)return '<section><h2>'+t("usT")+'</h2><div class="panel"><div class="from">'+t("usNone")+'</div></div></section>';
+ function tile(n,l,cls,sub){return '<div class="ut '+(cls||"")+'"><b>'+num(n)+'</b><span>'+l+'</span>'+(sub?'<small>'+sub+'</small>':'')+'</div>';}
+ var off=Math.max(0,u.total-u.online);
+ return '<section><h2>'+t("usT")+'</h2><div class="utiles">'
+  +tile(u.total,t("usTotal"))+tile(u.online,'<i class="dot"></i>'+t("usOnline"),"on")
+  +tile(off,'<i class="dot off"></i>'+t("usOffline"))+tile(u.admins,"Admin")
+  +tile(u.merchants,t("usMerch"),"",num(u.online_merchants)+" "+t("usOn"))+tile(u.customers,t("usCust"),"",num(u.online_customers)+" "+t("usOn"))
+  +tile(u.today,t("usDay"))+tile(u.week,t("usWeek"))+tile(u.new7,t("usNew"))
+  +'</div><div class="from" style="margin-top:8px">'+t("usNote")+'</div><button class="btn ghost" type="button" data-act="usrefresh" style="margin-top:8px">↻ '+t("usRefresh")+'</button></section>';}
+function beat(){if(!S.user||document.visibilityState==="hidden")return;try{var p=sb.rpc("touch_seen");if(p&&p.then)p.then(function(){},function(){});}catch(e){}}
 /* ---------- Events ---------- */
 document.addEventListener("click",function(e){
  var el=e.target.closest("[data-act],[data-go],[data-p],[data-fav],[data-add],[data-q],[data-auth],#logo,#logout,#retry,#langs button");if(!el)return;
@@ -1699,6 +1735,7 @@ $("q").addEventListener("input",function(e){S.q=e.target.value;if(route()==="sea
 window.addEventListener("hashchange",onRoute);
 sb.auth.onAuthStateChange(function(ev){if(ev==="PASSWORD_RECOVERY"){S.recovery=true;setTimeout(function(){loadUser().then(function(){go("account");render();});},0);return;}if(ev==="SIGNED_OUT"){setTimeout(function(){S.geo=null;S.geoAcc=0;S.user=null;S.profile=null;S.cart=[];S.favs=[];S.orders=[];S.shop=null;S.items=[];S.newCnt=0;S.unread=0;S.convs=[];S.chat=null;stopChatPoll();render();},0);}});
 render();
+setInterval(beat,60000);document.addEventListener("visibilitychange",beat);setTimeout(beat,4000);
 Promise.all([loadPublic(),loadUser()]).then(onRoute).catch(function(){S.ready=true;S.loadErr=true;render();});
 })();
 </script>
