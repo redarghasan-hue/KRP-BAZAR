@@ -173,6 +173,10 @@ details.panel[open] summary{margin-bottom:8px}
 .tl{display:flex;flex-direction:column;gap:2px;font-size:12px;color:var(--muted);padding-top:4px}
 
 .cedit{display:flex;flex-direction:column;gap:8px;padding:10px;background:var(--bg);border-radius:10px}
+
+.gbtn{display:flex;align-items:center;justify-content:center;gap:10px;width:100%}
+.orl{display:flex;align-items:center;gap:10px;color:var(--muted);font-size:13px;margin:4px 0}
+.orl:before,.orl:after{content:"";flex:1;height:1px;background:var(--line)}
 </style>
 <header>
   <div class="hrow">
@@ -290,7 +294,7 @@ function toast(msg){var el=$("toast");el.innerHTML='<span>'+esc(msg)+'</span>';c
 function go(h){if(location.hash==="#"+h)render();else location.hash=h;}
 function cartCount(){return S.cart.reduce(function(a,i){return a+i.qty;},0);}
 function keepScroll(){var y=window.scrollY;render();window.scrollTo(0,y);}
-function errText(e){var m=(e&&e.message)||"";if(/unavailable item/.test(m))return t("unavailable");if(/missing fields/.test(m))return t("fillAll");if(/coupon own/.test(m))return t("cpOwn");if(/coupon expired/.test(m))return t("cpExpired");if(/coupon used/.test(m))return t("cpUsed");if(/coupon min/.test(m))return t("cpMin");if(/coupon first/.test(m))return t("cpFirst");if(/coupon invalid/.test(m))return t("cpInvalid");if(/rate limit/.test(m))return t("rateLimitMsg");if(/reason required/.test(m))return t("reasonNeeded");if(/invalid size/.test(m))return t("chooseSize");if(/account blocked/.test(m))return t("blockedMsg");if(/too many open/.test(m))return t("tooMany");if(/cannot cancel/.test(m))return t("cancelLate");return m||t("error");}
+function errText(e){var m=(e&&e.message)||"";if(/unavailable item/.test(m))return t("unavailable");if(/missing fields/.test(m))return t("fillAll");if(/invalid phone/.test(m))return t("phoneBad");if(/terms required/.test(m))return t("mustAccept");if(/coupon own/.test(m))return t("cpOwn");if(/coupon expired/.test(m))return t("cpExpired");if(/coupon used/.test(m))return t("cpUsed");if(/coupon min/.test(m))return t("cpMin");if(/coupon first/.test(m))return t("cpFirst");if(/coupon invalid/.test(m))return t("cpInvalid");if(/rate limit/.test(m))return t("rateLimitMsg");if(/reason required/.test(m))return t("reasonNeeded");if(/invalid size/.test(m))return t("chooseSize");if(/account blocked/.test(m))return t("blockedMsg");if(/too many open/.test(m))return t("tooMany");if(/cannot cancel/.test(m))return t("cancelLate");return m||t("error");}
 function needLogin(){S.authMsg=t("loginFirst");S.authMode="login";go("account");}
 
 /* ---------- Data ---------- */
@@ -452,6 +456,7 @@ function vAccount(){
   return '<h1>'+(reg?t("register"):t("login"))+'</h1>'
    +(S.authMsg?'<div class="msg">'+esc(S.authMsg)+'</div>':'')
    +'<div class="tabs"><button type="button" data-auth="login" aria-pressed="'+(!reg)+'">'+t("login")+'</button><button type="button" data-auth="register" aria-pressed="'+reg+'">'+t("register")+'</button></div>'
+   +'<div class="panel"><button class="btn ghost gbtn" type="button" data-act="oauth" data-v="google">'+GLOGO+'<span>'+t("googleBtn")+'</span></button><div class="orl">'+t("orL")+'</div></div>'
    +'<form class="panel" id="auth" novalidate>'
    +(reg?'<label>'+t("name")+'<input class="f" id="a-name" autocomplete="name"></label><label>'+t("phone")+'<input class="f" id="a-phone" type="tel" inputmode="tel" dir="ltr" autocomplete="tel"></label>':'')
    +'<label>'+t("email")+'<input class="f" id="a-email" type="email" dir="ltr" autocomplete="email"></label>'
@@ -480,6 +485,7 @@ function render(){
  document.documentElement.dir=S.lang==="en"?"ltr":"rtl";
  $("q").placeholder=t("search");
  if(!S.ready){h='<div class="empty">'+t("loading")+'</div>';}
+ else if(needsProfile()&&r!=="terms"&&r!=="privacy"){h=vComplete();active="account";}
  else if(S.loadErr&&r!=="account"){h='<div class="empty"><span>'+t("error")+'</span><button class="btn" type="button" id="retry">↻</button></div>';}
  else if(r==="home"){h=vHome();}
  else if(r==="categories"){h='<h1>'+t("cats")+'</h1>'+catGrid();active="cats";}
@@ -697,6 +703,7 @@ async function doAct(el){
  if(a==="star"){if(S.rate){var cc=$("r-comment");if(cc)S.rate.comment=cc.value;S.rate.rating=parseInt(v,10);}keepScroll();return;}
  if(a==="atab"){S.atab=v;keepScroll();return;}
  if(a==="statp"){S.statP=v;keepScroll();return;}
+ if(a==="oauth"){var oa=await sb.auth.signInWithOAuth({provider:v,options:{redirectTo:location.origin+location.pathname,queryParams:{prompt:"select_account"}}});if(oa.error){S.authErr=errText(oa.error);render();}return;}
  if(a==="cedit"){S.cEd=(S.cEd===id)?null:id;keepScroll();return;}
  if(a==="ctab"){S.cartTab=(v==="myord"?"orders":"cart");if(v==="myord"){try{await loadOrders();}catch(e8){}}keepScroll();return;}
  if(a==="csize"){await changeSize(parseInt(id,10),el.dataset.s||"",v);return;}
@@ -1479,6 +1486,34 @@ var T22={
  ku:{sn_pants:"قەبارەی پیت و قەبارەی ناوقەدی ئەوروپی.",sn_kidsC:"قەبارە = باڵای منداڵ بە سانتیمەتر.",sn_shoes:"قەبارەی پێڵاوی ئەوروپی.",g_top:"تیشێرت و کراس",g_pants:"پانتۆڵ",g_shoesM:"پێڵاوی پیاوان",g_shoesW:"پێڵاوی ژنان",g_kidsC:"جلوبەرگی منداڵان (سم)",g_shoesK:"پێڵاوی منداڵان"}
 };
 Object.keys(T22).forEach(function(k){Object.keys(T22[k]).forEach(function(x){T[k][x]=T22[k][x];});});
+
+var T24={
+ en:{googleBtn:"Continue with Google",orL:"or",completeT:"Complete your profile",completeSub:"Your phone number and address are required so your orders can be delivered.",phoneBad:"Please enter a valid phone number."},
+ ar:{googleBtn:"المتابعة باستخدام Google",orL:"أو",completeT:"أكمل ملفك الشخصي",completeSub:"رقم الهاتف والعنوان مطلوبان حتى يمكن توصيل طلباتك.",phoneBad:"يرجى إدخال رقم هاتف صحيح."},
+ ku:{googleBtn:"بەردەوامبوون بە Google",orL:"یان",completeT:"پرۆفایلەکەت تەواو بکە",completeSub:"ژمارەی مۆبایل و ناونیشان پێویستن بۆ ئەوەی داواکارییەکانت بگەیەندرێن.",phoneBad:"تکایە ژمارەیەکی مۆبایلی دروست بنووسە."}
+};
+Object.keys(T24).forEach(function(k){Object.keys(T24[k]).forEach(function(x){T[k][x]=T24[k][x];});});
+var GLOGO='<svg viewBox="0 0 48 48" width="20" height="20" aria-hidden="true"><path fill="#EA4335" d="M24 9.5c3.54 0 6.71 1.22 9.21 3.6l6.85-6.85C35.9 2.38 30.47 0 24 0 14.62 0 6.51 5.38 2.56 13.22l7.98 6.19C12.43 13.72 17.74 9.5 24 9.5z"/><path fill="#4285F4" d="M46.98 24.55c0-1.57-.15-3.09-.38-4.55H24v9.02h12.94c-.58 2.96-2.26 5.48-4.78 7.18l7.73 6c4.51-4.18 7.09-10.36 7.09-17.65z"/><path fill="#FBBC05" d="M10.53 28.59c-.48-1.45-.76-2.99-.76-4.59s.27-3.14.76-4.59l-7.98-6.19C.92 16.46 0 20.12 0 24c0 3.88.92 7.54 2.56 10.78l7.97-6.19z"/><path fill="#34A853" d="M24 48c6.48 0 11.93-2.13 15.89-5.81l-7.73-6c-2.15 1.45-4.92 2.3-8.16 2.3-6.26 0-11.57-4.22-13.47-9.91l-7.98 6.19C6.51 42.62 14.62 48 24 48z"/></svg>';
+function needsProfile(){var pr=S.profile;if(!S.user||!pr||S.recovery)return false;if(pr.role==="admin")return false;return !(pr.phone&&pr.addr_city&&pr.addr_text&&pr.terms_accepted_at);}
+function vComplete(){
+ var pr=S.profile||{},um=(S.user&&S.user.user_metadata)||{};
+ return '<h1>'+t("completeT")+'</h1><div class="msg">'+t("completeSub")+'</div>'
+  +'<form class="panel" id="cmpl" novalidate>'
+  +'<label>'+t("name")+'<input class="f" id="c-name" autocomplete="name" value="'+esc(pr.full_name||um.full_name||um.name||"")+'"></label>'
+  +'<label>'+t("phone")+'<input class="f" id="c-phone" type="tel" inputmode="tel" dir="ltr" autocomplete="tel" placeholder="0750 000 0000" value="'+esc(pr.phone||"")+'"></label>'
+  +'<label>'+t("city")+'<input class="f" id="c-city" value="'+esc(pr.addr_city||({en:"Erbil",ar:"أربيل",ku:"هەولێر"})[S.lang])+'"></label>'
+  +'<label>'+t("addr")+'<textarea class="f" id="c-addr" rows="3">'+esc(pr.addr_text||"")+'</textarea></label>'
+  +(pr.terms_accepted_at?'':'<label style="flex-direction:row;align-items:flex-start;gap:8px"><input type="checkbox" id="c-terms"><span>'+t("acceptPre")+' <a href="#terms" target="_blank" rel="noopener">'+t("termsT")+'</a> '+t("andL")+' <a href="#privacy" target="_blank" rel="noopener">'+t("privacyT")+'</a></span></label>')
+  +'<div id="cerr" style="color:var(--price);min-height:20px" role="alert"></div>'
+  +'<button class="btn" type="submit">'+t("save")+'</button><button class="btn ghost" type="button" id="logout">'+t("logout")+'</button></form>'+legalLinks();}
+async function doComplete(){
+ var v=["c-name","c-phone","c-city","c-addr"].map(function(i){return $(i).value.trim();}),tc=$("c-terms");
+ if(v.some(function(x){return !x;})){$("cerr").textContent=t("fillAll");return;}
+ if(v[1].replace(/\D/g,"").length<8){$("cerr").textContent=t("phoneBad");return;}
+ if(tc&&!tc.checked){$("cerr").textContent=t("mustAccept");return;}
+ var r=await sb.rpc("complete_profile",{p_name:v[0],p_phone:v[1],p_city:v[2],p_addr:v[3],p_terms:true});
+ if(r.error){$("cerr").textContent=errText(r.error);return;}
+ await loadUser();toast(t("saved"));go("home");render();}
 /* ---------- Events ---------- */
 document.addEventListener("click",function(e){
  var el=e.target.closest("[data-act],[data-go],[data-p],[data-fav],[data-add],[data-q],[data-auth],#logo,#logout,#retry,#langs button");if(!el)return;
@@ -1505,12 +1540,14 @@ document.addEventListener("submit",async function(e){
  if(e.target.id==="forgot"){return doForgot();}
  if(e.target.id==="recov"){return doRecov();}
  if(e.target.id==="rateform"){return doRate();}
+ if(e.target.id==="cmpl"){return doComplete();}
  if(e.target.id==="supform"){return doSupport();}
  if(e.target.id==="shopreg"){return doShopReg();}
  if(e.target.id==="pform"){return doAddProduct();}
  if(e.target.id==="auth"){
   var em=$("a-email").value.trim(),pw=$("a-pass").value,reg=S.authMode==="register";
   if(!em||!pw){$("aerr").textContent=t("fillAll");return;}
+  if(reg&&(!$("a-name").value.trim()||$("a-phone").value.replace(/\D/g,"").length<8)){$("aerr").textContent=t("phoneBad");return;}
   if(reg&&pw.length<6){$("aerr").textContent=t("pwHint");return;}
   if(reg&&!$("a-terms").checked){$("aerr").textContent=t("mustAccept");return;}
   S.busy=true;S.authErr="";S.authMsg="";
