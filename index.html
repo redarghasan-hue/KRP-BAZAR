@@ -200,6 +200,14 @@ details.panel[open] summary{margin-bottom:8px}
 .srow small{display:block;color:var(--muted);font-size:12px;font-weight:400}
 .ssum{display:flex;gap:8px;flex-wrap:wrap;font-size:13px}
 .ssum span{background:var(--bg,#f4f4f4);border:1px solid var(--line);border-radius:8px;padding:3px 8px}
+
+.phs{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+.phs .ph{position:relative;width:72px;height:72px;border-radius:10px;overflow:hidden;border:1px solid var(--line);display:block}
+.phs .ph img{width:100%;height:100%;object-fit:cover;display:block}
+.phs .ph button{position:absolute;top:2px;inset-inline-end:2px;width:22px;height:22px;border-radius:50%;border:0;background:rgba(0,0,0,.65);color:#fff;font-size:14px;line-height:1;padding:0;cursor:pointer}
+.phs label.add{width:72px;height:72px;border-radius:10px;border:1.5px dashed var(--line);display:flex;flex-direction:column;align-items:center;justify-content:center;font-size:11px;color:var(--muted);cursor:pointer;text-align:center;gap:2px}
+.phs label.add b{font-size:22px;line-height:1}
+.phs input[type=file]{display:none}
 </style>
 <header>
   <div class="hrow">
@@ -544,7 +552,8 @@ async function onRoute(){
  if(route()==="account"&&S.user){await loadOrders();try{await refreshShop();await refreshMine();await loadAdmin();}catch(e){}}
  if(route()==="ledger"&&S.user){try{await refreshShop();await refreshMine();await loadAdmin();}catch(e){}}
  var rr=route(),mm=rr.match(/^(shop|rate)-([0-9a-f-]{36})$/);
- if(mm){try{var sv=await sb.from("shops").select("id,name,logo_url,address").eq("id",mm[2]).maybeSingle();S.viewShop=sv.data;if(S.user&&!S.orders.length)await loadOrders();if(mm[1]==="rate"){var ex=S.reviews.filter(function(x){return x.shop_id===mm[2]&&S.user&&x.user_id===S.user.id;})[0];S.rate={shopId:mm[2],rating:ex?ex.rating:0,comment:ex&&ex.comment?ex.comment:""};}}catch(e){}}
+ if(rr==="support"&&S.prevR!=="support")S.supImgs=[];S.prevR=rr;
+ if(mm){try{var sv=await sb.from("shops").select("id,name,logo_url,address").eq("id",mm[2]).maybeSingle();S.viewShop=sv.data;if(S.user&&!S.orders.length)await loadOrders();if(mm[1]==="rate"){var ex=S.reviews.filter(function(x){return x.shop_id===mm[2]&&S.user&&x.user_id===S.user.id;})[0];S.rate={shopId:mm[2],rating:ex?ex.rating:0,comment:ex&&ex.comment?ex.comment:"",imgs:ex&&ex.images?ex.images.slice():[]};}}catch(e){}}
  if(rr==="support"&&S.user){try{await loadOrders();await loadComplaints();}catch(e){}}
  if(rr==="chats"&&S.user){try{await loadConvs();}catch(e){}}
  var cm=rr.match(/^chat-(\d+)$/);
@@ -728,6 +737,7 @@ async function doAddProduct(){
 async function doAct(el){
  var a=el.dataset.act,id=el.dataset.id,v=el.dataset.v;
  if(a==="tab"){S.tab=v;keepScroll();return;}
+ if(a==="phdel"){var pl=phList(v);pl.splice(parseInt(id,10),1);var pb=$("ph-"+v);if(pb)pb.innerHTML=phInner(v);return;}
  if(a==="avdel"){try{await setAvatarUrl(null);toast(t("saved"));keepScroll();}catch(e){toast(errText(e));}return;}
  if(a==="forgot"){S.authMode="forgot";S.authErr="";S.authMsg="";render();return;}
  if(a==="login"){S.authMode="login";S.authErr="";S.authMsg="";render();return;}
@@ -852,6 +862,10 @@ async function doAct(el){
   }
  }catch(e){toast(errText(e));}}
 async function doChange(el){
+ if(el.dataset.cact==="phadd"){var pk=el.dataset.v,pf=el.files[0];if(!pf)return;var pbx=$("ph-"+pk);
+  try{if(pk==="rate"){if(!S.rate)return;S.rate.imgs=S.rate.imgs||[];}else{S.supImgs=S.supImgs||[];}
+   if(phList(pk).length>=3)return;toast(t("p27Up"));var pu=await uploadImg(pf,1000);phList(pk).push(pu);}catch(e){toast(errText(e));}
+  pbx=$("ph-"+pk);if(pbx)pbx.innerHTML=phInner(pk);return;}
  if(el.dataset.cact==="avatar"){var af=el.files[0];if(!af)return;try{toast(t("uploading"));var au=await uploadImg(af,320);await setAvatarUrl(au);toast(t("saved"));keepScroll();}catch(e){toast(errText(e));}return;}
  if(el.dataset.cact==="logo"){var lf=el.files[0];if(!lf)return;try{toast(t("uploading"));var lu=await uploadImg(lf,300);await upd("shops",{logo_url:lu},"id",S.shop.id);await refreshShop();toast(t("saved"));keepScroll();}catch(e){toast(errText(e));}return;}
  if(el.dataset.cact==="eta"){try{var eo=el.dataset.id,es=el.dataset.sid,ev=el.value||null;var er=await sb.from("order_items").update({eta_date:ev}).eq("order_id",eo).eq("shop_id",es);if(er.error)throw er.error;[S.items,S.adm?S.adm.items:[]].forEach(function(l){l.forEach(function(i){if(String(i.order_id)===String(eo)&&i.shop_id===es)i.eta_date=ev;});});toast(t("saved"));keepScroll();}catch(e0){toast(errText(e0));}return;}
@@ -887,7 +901,7 @@ function vShopPage(id){
  h+=chatBtn(id);
  if(canRate(id))h+='<button class="btn" type="button" data-go="rate-'+id+'">★ '+t("rateSeller")+'</button>';
  h+='<section><h2>'+t("shopProducts")+'</h2>'+(prods.length?'<div class="grid">'+prods.map(card).join("")+'</div>':'<div class="empty">'+t("noProducts")+'</div>')+'</section>';
- h+='<section><h2>'+t("reviews")+'</h2><div class="panel">'+(rv.length?rv.slice(0,20).map(function(x){return '<div class="order"><div>'+starStr(x.rating)+' <b>'+esc(x.author||"")+'</b> <span class="from">'+esc((x.created_at||"").slice(0,10))+'</span></div>'+(x.comment?'<div>'+esc(x.comment)+'</div>':'')+'</div>';}).join(""):'<div class="from">'+t("noReviews")+'</div>')+'</div></section>';
+ h+='<section><h2>'+t("reviews")+'</h2><div class="panel">'+(rv.length?rv.slice(0,20).map(function(x){return '<div class="order"><div>'+starStr(x.rating)+' <b>'+esc(x.author||"")+'</b> <span class="from">'+esc((x.created_at||"").slice(0,10))+'</span></div>'+(x.comment?'<div>'+esc(x.comment)+'</div>':'')+phGrid(x.images)+'</div>';}).join(""):'<div class="from">'+t("noReviews")+'</div>')+'</div></section>';
  return h;}
 function vRate(id){
  if(!S.user)return loginPrompt();
@@ -896,13 +910,13 @@ function vRate(id){
  if(!canRate(id))return h+'<div class="msg">'+t("ratingOnly")+'</div>';
  var R=S.rate||{rating:0,comment:""},st="";
  for(var i=1;i<=5;i++)st+='<button type="button" data-act="star" data-v="'+i+'" aria-label="'+i+'" style="background:none;border:0;font-size:36px;line-height:1;color:var(--accent);padding:2px">'+(i<=R.rating?"★":"☆")+'</button>';
- return h+'<form class="panel" id="rateform" novalidate><b>'+t("yourRating")+'</b><div>'+st+'</div><label>'+t("comment")+'<textarea class="f" id="r-comment" rows="3">'+esc(R.comment)+'</textarea></label><div id="rerr" style="color:var(--price);min-height:20px" role="alert"></div><button class="btn" type="submit"'+(S.busy?" disabled":"")+'>'+t("submitRating")+'</button></form>';}
+ return h+'<form class="panel" id="rateform" novalidate><b>'+t("yourRating")+'</b><div>'+st+'</div><label>'+t("comment")+'<textarea class="f" id="r-comment" rows="3">'+esc(R.comment)+'</textarea></label>'+phBox("rate")+'<div id="rerr" style="color:var(--price);min-height:20px" role="alert"></div><button class="btn" type="submit"'+(S.busy?" disabled":"")+'>'+t("submitRating")+'</button></form>';}
 function vSupport(){
  if(!S.user)return '<h1>'+t("support")+'</h1>'+loginPrompt();
  var h='<button class="crumb" type="button" data-go="account">‹ '+t("back")+'</button><h1>'+t("support")+'</h1>'
   +'<form class="panel" id="supform" novalidate><label>'+t("relatedOrder")+'<select id="sup-order" class="f"><option value="">—</option>'+S.orders.map(function(o){return '<option value="'+o.id+'">#'+o.id+'</option>';}).join("")+'</select></label>'
-  +'<label>'+t("yourMsg")+'<textarea class="f" id="sup-msg" rows="4"></textarea></label><div id="uerr" style="color:var(--price);min-height:20px" role="alert"></div><button class="btn" type="submit"'+(S.busy?" disabled":"")+'>'+t("sendMsg")+'</button></form>';
- h+='<section><h2>'+t("myMsgs")+'</h2><div class="panel">'+(S.complaints.length?S.complaints.map(function(c){return '<div class="order"><div class="sum"><span class="from">'+esc((c.created_at||"").slice(0,10))+(c.order_id?' · #'+c.order_id:'')+'</span><span class="pill">'+(c.status==="resolved"?t("resolvedL"):t("openL"))+'</span></div><div>'+esc(c.message)+'</div>'+(c.admin_reply?'<div class="msg"><b>'+t("replyL")+':</b> '+esc(c.admin_reply)+'</div>':'')+'</div>';}).join(""):'<div class="from">'+t("noItems")+'</div>')+'</div></section>';
+  +'<label>'+t("yourMsg")+'<textarea class="f" id="sup-msg" rows="4"></textarea></label>'+phBox("sup")+'<div id="uerr" style="color:var(--price);min-height:20px" role="alert"></div><button class="btn" type="submit"'+(S.busy?" disabled":"")+'>'+t("sendMsg")+'</button></form>';
+ h+='<section><h2>'+t("myMsgs")+'</h2><div class="panel">'+(S.complaints.length?S.complaints.map(function(c){return '<div class="order"><div class="sum"><span class="from">'+esc((c.created_at||"").slice(0,10))+(c.order_id?' · #'+c.order_id:'')+'</span><span class="pill">'+(c.status==="resolved"?t("resolvedL"):t("openL"))+'</span></div><div>'+esc(c.message)+'</div>'+phGrid(c.images)+(c.admin_reply?'<div class="msg"><b>'+t("replyL")+':</b> '+esc(c.admin_reply)+'</div>':'')+'</div>';}).join(""):'<div class="from">'+t("noItems")+'</div>')+'</div></section>';
  return h;}
 function vForgot(){
  return '<button class="crumb" type="button" data-act="login">‹ '+t("back")+'</button><h1>'+t("forgot")+'</h1>'+(S.authMsg?'<div class="msg">'+esc(S.authMsg)+'</div>':'')
@@ -912,7 +926,7 @@ function vRecovery(){
 function admComp(){
  var l=S.adm.comp||[],CMP=compMap();
  return '<div class="panel">'+(l.length?l.map(function(c){var p=c.profiles||{};
-  return '<div class="order"><div class="sum"><b>'+esc(p.full_name||"")+'</b><span class="pill">'+(c.status==="resolved"?t("resolvedL"):t("openL"))+'</span></div><div class="from"><span dir="ltr">'+esc(p.phone||"")+'</span>'+(c.order_id?' · #'+c.order_id:'')+' · '+esc((c.created_at||"").slice(0,10))+'</div>'+(c.order_id&&CMP.os[c.order_id]?'<div class="from">'+t("shopsInvolved")+': '+esc(Object.keys(CMP.os[c.order_id]).map(function(k){return CMP.os[c.order_id][k];}).join(", "))+'</div>':'')+'<div>'+esc(c.message)+'</div>'
+  return '<div class="order"><div class="sum"><b>'+esc(p.full_name||"")+'</b><span class="pill">'+(c.status==="resolved"?t("resolvedL"):t("openL"))+'</span></div><div class="from"><span dir="ltr">'+esc(p.phone||"")+'</span>'+(c.order_id?' · #'+c.order_id:'')+' · '+esc((c.created_at||"").slice(0,10))+'</div>'+(c.order_id&&CMP.os[c.order_id]?'<div class="from">'+t("shopsInvolved")+': '+esc(Object.keys(CMP.os[c.order_id]).map(function(k){return CMP.os[c.order_id][k];}).join(", "))+'</div>':'')+'<div>'+esc(c.message)+'</div>'+phGrid(c.images)
    +(c.status==="resolved"?'<div class="msg"><b>'+t("replyL")+':</b> '+esc(c.admin_reply||"")+'</div>':'<label>'+t("yourReply")+'<textarea class="f" id="r-'+c.id+'" rows="2"></textarea></label><button class="btn" type="button" data-act="creply" data-id="'+c.id+'">'+t("replyResolve")+'</button>')+'</div>';}).join(""):'<div class="from">'+t("noItems")+'</div>')+'</div>';}
 async function loadComplaints(){
  if(!S.user){S.complaints=[];return;}
@@ -940,7 +954,7 @@ async function doRate(){
  if(!R.rating){$("rerr").textContent=t("fillAll");return;}
  S.busy=true;
  var nm=(S.profile&&S.profile.full_name)||"";
- var r=await sb.from("shop_reviews").upsert({shop_id:R.shopId,user_id:S.user.id,author:nm,rating:R.rating,comment:c||null},{onConflict:"shop_id,user_id"});
+ var r=await sb.from("shop_reviews").upsert({shop_id:R.shopId,user_id:S.user.id,author:nm,rating:R.rating,comment:c||null,images:R.imgs||[]},{onConflict:"shop_id,user_id"});
  S.busy=false;
  if(r.error){render();var er=$("rerr");if(er)er.textContent=errText(r.error);return;}
  await loadPublic();toast(t("saved"));go("shop-"+R.shopId);}
@@ -948,10 +962,10 @@ async function doSupport(){
  var m=$("sup-msg").value.trim(),o=$("sup-order").value;
  if(!m){$("uerr").textContent=t("fillAll");return;}
  S.busy=true;
- var r=await sb.from("complaints").insert({user_id:S.user.id,order_id:o?parseInt(o,10):null,message:m});
+ var r=await sb.from("complaints").insert({user_id:S.user.id,order_id:o?parseInt(o,10):null,message:m,images:S.supImgs||[]});
  S.busy=false;
  if(r.error){render();var er=$("uerr");if(er)er.textContent=errText(r.error);return;}
- await loadComplaints();render();toast(t("sent"));}
+ S.supImgs=[];await loadComplaints();render();toast(t("sent"));}
 /* ---------- Ads: featured products and banners ---------- */
 var T4={
  en:{featSection:"Featured products",featured:"Featured",bannersT:"Banners",bannerTitle:"Banner title (optional)",bannerImg:"Banner image",bannerLink:"Linked product (optional)",bannerDays:"Days shown",addBanner:"Add banner",delBtn:"Delete",until:"Until",feat7:"★ 7 days",feat30:"★ 30 days",unfeat:"Remove star",needImg:"Please choose an image."},
@@ -1302,7 +1316,7 @@ function mEarn(){return mEarn1()+myCpPanel()+'<h2>'+t("statsT")+'</h2>'+statsPan
 
 function admReviews(){
  var l=(S.reviews||[]).slice(0,60),nm={};S.adm.shops.forEach(function(x){nm[x.id]=x.name;});
- return '<div class="panel">'+(l.length?l.map(function(r){return '<div class="order"><div class="sum"><b>'+esc(nm[r.shop_id]||"")+'</b>'+starStr(r.rating)+'</div><div class="from">'+esc(r.author||"")+' · '+esc((r.created_at||"").slice(0,10))+'</div>'+(r.comment?'<div>'+esc(r.comment)+'</div>':'')+'<button class="btn ghost" type="button" data-act="rvdel" data-id="'+r.id+'">'+t("delBtn")+'</button></div>';}).join(""):'<div class="from">'+t("noItems")+'</div>')+'</div>';}
+ return '<div class="panel">'+(l.length?l.map(function(r){return '<div class="order"><div class="sum"><b>'+esc(nm[r.shop_id]||"")+'</b>'+starStr(r.rating)+'</div><div class="from">'+esc(r.author||"")+' · '+esc((r.created_at||"").slice(0,10))+'</div>'+(r.comment?'<div>'+esc(r.comment)+'</div>':'')+phGrid(r.images)+'<button class="btn ghost" type="button" data-act="rvdel" data-id="'+r.id+'">'+t("delBtn")+'</button></div>';}).join(""):'<div class="from">'+t("noItems")+'</div>')+'</div>';}
 function compMap(){
  var os={},by={};
  (S.adm.items||[]).forEach(function(i){(os[i.order_id]=os[i.order_id]||{})[i.shop_id]=i.shops?i.shops.name:"";});
@@ -1608,6 +1622,19 @@ function splitPanel(x){
   +'<div class="from">'+t("p26Hint")+'</div></div>';}
 function mEarn1(){return splitPanel(splitFor(S.items||[],S.shop.id))+mEarn1base();}
 function admSettle(){var a=S.adm;return splitPanel(splitSum(a.shops.map(function(sh){return splitFor(a.items,sh.id);})))+admSettleBase();}
+
+var T27={
+ en:{p27Photos:"Photos of your order (optional, up to 3)",p27Add:"Add",p27Up:"Uploading photo…"},
+ ar:{p27Photos:"صور طلبك (اختياري، حتى 3)",p27Add:"إضافة",p27Up:"جارٍ رفع الصورة…"},
+ ku:{p27Photos:"وێنەی داواکارییەکەت (ئارەزوومەندانە، تا ٣)",p27Add:"زیادکردن",p27Up:"وێنە بارکردن…"}
+};
+Object.keys(T27).forEach(function(k){Object.keys(T27[k]).forEach(function(x){T[k][x]=T27[k][x];});});
+function phList(key){return key==="rate"?((S.rate&&S.rate.imgs)||[]):(S.supImgs||[]);}
+function phInner(key){var l=phList(key);
+ return l.map(function(u,i){return '<span class="ph"><img src="'+esc(u)+'" alt=""><button type="button" data-act="phdel" data-v="'+key+'" data-id="'+i+'" aria-label="×">×</button></span>';}).join("")
+  +(l.length<3?'<label class="add"><b>+</b>'+t("p27Add")+'<input type="file" accept="image/*" data-cact="phadd" data-v="'+key+'"></label>':'');}
+function phBox(key){return '<div><div class="from">'+t("p27Photos")+'</div><div class="phs" id="ph-'+key+'">'+phInner(key)+'</div></div>';}
+function phGrid(urls){if(!urls||!urls.length)return "";return '<div class="phs">'+urls.map(function(u){return '<a class="ph" href="'+esc(u)+'" target="_blank" rel="noopener"><img src="'+esc(u)+'" alt="" loading="lazy"></a>';}).join("")+'</div>';}
 /* ---------- Events ---------- */
 document.addEventListener("click",function(e){
  var el=e.target.closest("[data-act],[data-go],[data-p],[data-fav],[data-add],[data-q],[data-auth],#logo,#logout,#retry,#langs button");if(!el)return;
