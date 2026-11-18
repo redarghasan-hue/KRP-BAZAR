@@ -217,6 +217,9 @@ details.panel[open] summary{margin-bottom:8px}
 .ut.on b{color:#1b8a4b}
 .dot{display:inline-block;width:9px;height:9px;border-radius:50%;background:#1b8a4b;margin-inline-end:6px}
 .dot.off{background:#b5b5b5}
+
+.feebox{display:flex;flex-direction:column;gap:8px}
+.feebox .row{display:flex;gap:8px;flex-wrap:wrap}
 </style>
 <header>
   <div class="hrow">
@@ -334,7 +337,7 @@ function toast(msg){var el=$("toast");el.innerHTML='<span>'+esc(msg)+'</span>';c
 function go(h){if(location.hash==="#"+h)render();else location.hash=h;}
 function cartCount(){return S.cart.reduce(function(a,i){return a+i.qty;},0);}
 function keepScroll(){var y=window.scrollY;render();window.scrollTo(0,y);}
-function errText(e){var m=(e&&e.message)||"";if(/unavailable item/.test(m))return t("unavailable");if(/missing fields/.test(m))return t("fillAll");if(/invalid phone/.test(m))return t("phoneBad");if(/terms required/.test(m))return t("mustAccept");if(/coupon own/.test(m))return t("cpOwn");if(/coupon expired/.test(m))return t("cpExpired");if(/coupon used/.test(m))return t("cpUsed");if(/coupon min/.test(m))return t("cpMin");if(/coupon first/.test(m))return t("cpFirst");if(/coupon invalid/.test(m))return t("cpInvalid");if(/rate limit/.test(m))return t("rateLimitMsg");if(/reason required/.test(m))return t("reasonNeeded");if(/invalid size/.test(m))return t("chooseSize");if(/account blocked/.test(m))return t("blockedMsg");if(/too many open/.test(m))return t("tooMany");if(/cannot cancel/.test(m))return t("cancelLate");return m||t("error");}
+function errText(e){var m=(e&&e.message)||"";if(/delivery price pending/.test(m))return t("p29Pend2");if(/unavailable item/.test(m))return t("unavailable");if(/missing fields/.test(m))return t("fillAll");if(/invalid phone/.test(m))return t("phoneBad");if(/terms required/.test(m))return t("mustAccept");if(/coupon own/.test(m))return t("cpOwn");if(/coupon expired/.test(m))return t("cpExpired");if(/coupon used/.test(m))return t("cpUsed");if(/coupon min/.test(m))return t("cpMin");if(/coupon first/.test(m))return t("cpFirst");if(/coupon invalid/.test(m))return t("cpInvalid");if(/rate limit/.test(m))return t("rateLimitMsg");if(/reason required/.test(m))return t("reasonNeeded");if(/invalid size/.test(m))return t("chooseSize");if(/account blocked/.test(m))return t("blockedMsg");if(/too many open/.test(m))return t("tooMany");if(/cannot cancel/.test(m))return t("cancelLate");return m||t("error");}
 function needLogin(){S.authMsg=t("loginFirst");S.authMode="login";go("account");}
 
 /* ---------- Data ---------- */
@@ -367,6 +370,7 @@ async function loadOrders(){
  if(!S.user)return;
  var r=await sb.from("orders").select("*,order_items(*,products(name_en,name_ar,name_ku),shops(name))").eq("customer_id",S.user.id).order("id",{ascending:false});
  S.orders=r.data||[];
+ await loadPf();
 }
 function orderTotal(o){return (o.order_items||[]).reduce(function(a,i){return a+i.unit_price_iqd*i.qty;},0)+(o.delivery_fee_iqd||0)-(o.discount_iqd||0);}
 function orderStep(o){var items=o.order_items||[];if(!items.length)return 0;var idx=items.map(function(i){return STATUS.indexOf(i.status);});if(idx.every(function(x){return x===6;}))return 6;idx=idx.filter(function(x){return x!==6;});return Math.min.apply(null,idx);}
@@ -444,9 +448,8 @@ function sizeBox(first){
  return '<div id="sizebox" style="display:'+(first&&isClothing(first)?'block':'none')+'"><b>'+t("sizesL")+'</b><div class="from">'+t("sizeStockHint")+'</div><span id="psznote">'+sizeNote(first).replace(' id="sznote"','')+'</span><div class="row" id="psizerow" style="flex-wrap:wrap;gap:10px;margin-top:6px">'+(first?sizeInputs(first,"szq",{},[]):"")+'</div></div>';}
 function readSizes(sel){var ss={},arr=[];Array.prototype.forEach.call(document.querySelectorAll(sel),function(el){var n=parseInt(el.value,10);if(n>0){ss[el.dataset.sz]=n;arr.push(el.dataset.sz);}});return {sizes:arr,stock:ss};}
 function lines(){return S.cart.map(function(i){return {p:prod(i.product_id),q:i.qty,s:i.size||""};}).filter(function(l){return l.p;});}
-function shopGroups(){var g={},ord=[];lines().forEach(function(l){var k=l.p.shop_id;if(!g[k]){g[k]={name:l.p.shops?l.p.shops.name:"",ls:[],sub:0};ord.push(k);}g[k].ls.push(l);g[k].sub+=l.p.price_iqd*l.q;});return ord.map(function(k){return g[k];});}
-function totals(){var sub=0,fee=0;shopGroups().forEach(function(g){sub+=g.sub;fee+=g.sub>=100000?0:3000;});var disc=S.coupon?Math.min(Number(S.coupon.discount)||0,sub):0;return {sub:sub,fee:fee,disc:disc,tot:sub+fee-disc};}
-function sumHtml(){var s=totals();return '<div class="sum"><span>'+t("sub")+'</span><span>'+money(s.sub)+'</span></div><div class="sum"><span>'+t("del")+'</span><span>'+(s.fee?money(s.fee):t("free"))+'</span></div>'+(s.disc?'<div class="sum"><span>'+t("discL")+'</span><span>−'+money(s.disc)+'</span></div>':'')+'<div class="sum total"><span>'+t("total")+'</span><span class="price">'+money(s.tot)+'</span></div>';}
+function shopGroups(){var g={},ord=[];lines().forEach(function(l){var k=l.p.shop_id;if(!g[k]){g[k]={id:k,name:l.p.shops?l.p.shops.name:"",ls:[],sub:0};ord.push(k);}g[k].ls.push(l);g[k].sub+=l.p.price_iqd*l.q;});return ord.map(function(k){return g[k];});}
+function sumHtml(){var s=totals();return '<div class="sum"><span>'+t("sub")+'</span><span>'+money(s.sub)+'</span></div>'+feeLine(s)+(s.disc?'<div class="sum"><span>'+t("discL")+'</span><span>−'+money(s.disc)+'</span></div>':'')+'<div class="sum total"><span>'+t("total")+'</span><span class="price">'+money(s.tot)+'</span></div>';}
 function vCartItems(){
  if(!S.user)return '<h1>'+t("cart")+'</h1><div class="empty"><span>'+t("loginFirst")+'</span><button class="btn" type="button" data-go="account">'+t("login")+'</button></div>';
  var gs=shopGroups();
@@ -458,7 +461,7 @@ function vCartItems(){
    h+='<div class="row">'+pic(l.p,"thumb")+'<div class="info"><div style="font-weight:500">'+esc(L(l.p,"name"))+(l.s?' · '+esc(l.s):'')+'</div><div class="price">'+money(l.p.price_iqd)+'</div></div>'
     +'<div class="qty"><button type="button" data-q="'+l.p.id+'" data-s="'+esc(l.s)+'" data-d="-1" aria-label="−">−</button><span>'+num(l.q)+'</span><button type="button" data-q="'+l.p.id+'" data-s="'+esc(l.s)+'" data-d="1" aria-label="+">+</button></div></div>'+cEdit(l);
   });
-  h+='<div class="sum"><span class="from">'+t("del")+'</span><span class="from">'+(g.sub>=100000?t("free"):money(3000))+'</span></div></div>';
+  h+='<div class="sum"><span class="from">'+t("del")+'</span><span class="from">'+feeCell(g)+'</span></div></div>';
  });
  return h+'<div class="panel">'+sumHtml()+'<button class="btn" type="button" data-go="checkout">'+t("checkout")+'</button></div>';
 }
@@ -562,6 +565,7 @@ async function onRoute(){
  if(route()==="ledger"&&S.user){try{await refreshShop();await refreshMine();await loadAdmin();}catch(e){}}
  var rr=route(),mm=rr.match(/^(shop|rate)-([0-9a-f-]{36})$/);
  if(rr==="support"&&S.prevR!=="support")S.supImgs=[];S.prevR=rr;
+ if((rr==="cart"||rr==="checkout")&&S.user){try{await loadPreview();}catch(e){}}
  if(mm){try{var sv=await sb.from("shops").select("id,name,logo_url,address").eq("id",mm[2]).maybeSingle();S.viewShop=sv.data;if(S.user&&!S.orders.length)await loadOrders();if(mm[1]==="rate"){var ex=S.reviews.filter(function(x){return x.shop_id===mm[2]&&S.user&&x.user_id===S.user.id;})[0];S.rate={shopId:mm[2],rating:ex?ex.rating:0,comment:ex&&ex.comment?ex.comment:"",imgs:ex&&ex.images?ex.images.slice():[]};}}catch(e){}}
  if(rr==="support"&&S.user){try{await loadOrders();await loadComplaints();}catch(e){}}
  if(rr==="chats"&&S.user){try{await loadConvs();}catch(e){}}
@@ -635,7 +639,7 @@ async function refreshMine(){
  S.items=b.data||[];
  var pa=await sb.from("payouts").select("*").eq("shop_id",S.shop.id).order("id",{ascending:false});S.payouts=pa.error?[]:(pa.data||[]);
  var mc=await sb.from("coupons").select("*").eq("shop_id",S.shop.id).order("created_at",{ascending:false});S.myCoupons=mc.error?[]:(mc.data||[]);
- S.newCnt=countNew();}
+ await loadPf();S.newCnt=countNew();}
 async function loadAdmin(){
  if(!S.profile||S.profile.role!=="admin"){S.adm=null;return;}
  var a=await sb.from("shops").select("*,profiles(full_name,phone)").order("created_at",{ascending:false});
@@ -650,7 +654,7 @@ async function loadAdmin(){
  S.adm={cust:pf.error?[]:(pf.data||[]),pay:po.error?[]:(po.data||[]),maxo:mx.data?mx.data.value:"3",shops:a.data||[],prods:b.data||[],items:c.data||[],def:d.data?d.data.value:"5",comp:(cm.data||[]),banners:(bn.data||[])};
  var cpn=await sb.from("coupons").select("*").order("created_at",{ascending:false});S.adm.coupons=cpn.error?[]:(cpn.data||[]);
  var sc2=await sb.from("shop_contacts").select("*");S.adm.sphone={};(sc2.data||[]).forEach(function(x){S.adm.sphone[x.shop_id]=x.phone;});
- await loadUserStats();}
+ await loadUserStats();await loadPf();}
 function groupItems(items){var g={},ord=[];items.forEach(function(i){var k=i.order_id;if(!g[k]){g[k]=[];ord.push(k);}g[k].push(i);});return ord.map(function(k){return g[k];});}
 function stSel(it){
  var cur=STATUS.indexOf(it.status);
@@ -667,7 +671,7 @@ function orderCards(items){
  return groupItems(items).map(function(g){var o=g[0].orders||{};
   return '<div class="panel"><div class="sum"><b dir="ltr">#'+g[0].order_id+(g.some(function(i){return i.status==="new";})?' <span class="pill">'+t("newBadge")+'</span>':'')+'</b><span class="from">'+esc((o.created_at||"").slice(0,10))+'</span></div>'
    +'<div>'+t("customer")+': <b>'+esc(o.name)+'</b></div><div dir="ltr" style="text-align:start">'+esc(o.phone)+'</div>'+contactBtns(o.phone)+(S.shop&&S.shop.id===g[0].shop_id&&o.customer_id?'<button class="btn ghost" type="button" data-act="chatcust" data-id="'+g[0].shop_id+'" data-v="'+o.customer_id+'">💬 '+t("chatCust")+'</button>':'')+'<div>'+esc(o.city)+' · '+esc(o.address)+'</div>'+locBlock(o.location_url)
-   +g.map(function(i){return '<div class="offer"><div>'+num(i.qty)+' × '+esc(i.products?L(i.products,"name"):"")+szTag(i)+(i.shops?' <span class="from">('+esc(i.shops.name)+')</span>':'')+'<small>'+money(i.unit_price_iqd*i.qty)+'</small></div>'+stSel(i)+'</div>';}).join("")+etaRow(g)+'</div>';}).join("");}
+   +g.map(function(i){return '<div class="offer"><div>'+num(i.qty)+' × '+esc(i.products?L(i.products,"name"):"")+szTag(i)+(i.shops?' <span class="from">('+esc(i.shops.name)+')</span>':'')+'<small>'+money(i.unit_price_iqd*i.qty)+'</small></div>'+(pfPend(i.order_id,i.shop_id)?'<span class="from">⏳ '+t("p29Pend")+'</span>':stSel(i))+'</div>';}).join("")+etaRow(g)+feeMerch(g)+'</div>';}).join("");}
 function mProducts(){
  if(S.edit){var ep=S.mine.filter(function(x){return x.id===S.edit;})[0];if(ep)return editForm(ep);S.edit=null;}
  var h='<form class="panel" id="pform" novalidate><b>'+t("addProduct")+'</b>'
@@ -693,7 +697,7 @@ function vShop(){
  if(sh.status==="pending")return h+'<div class="msg">'+t("shopPending")+'</div></section>';
  if(sh.status==="suspended")return h+'<div class="msg">'+t("shopSuspended")+'</div></section>';
  h+='<div class="row">'+logoImg(sh,48)+'<label style="flex:1">'+t("changeLogo")+'<input class="f" type="file" accept="image/*" data-cact="logo"></label></div>';
- h+='<div class="panel"><b>'+t("shopInfo")+'</b><label>'+t("shopPhone")+'<input class="f" id="si-phone" type="tel" inputmode="tel" dir="ltr" value="'+esc(S.shopPhone||"")+'"></label><label>'+t("shopAddr")+'<textarea class="f" id="si-addr" rows="2">'+esc(sh.address||"")+'</textarea></label><label>'+t("leadL")+'<input class="f" id="si-lead" type="number" inputmode="numeric" min="0" max="30" dir="ltr" value="'+esc(String(sh.lead_days==null?2:sh.lead_days))+'"></label><button class="btn" type="button" data-act="shinfo">'+t("save")+'</button></div>';
+ h+=shopLocCard();h+='<div class="panel"><b>'+t("shopInfo")+'</b><label>'+t("shopPhone")+'<input class="f" id="si-phone" type="tel" inputmode="tel" dir="ltr" value="'+esc(S.shopPhone||"")+'"></label><label>'+t("shopAddr")+'<textarea class="f" id="si-addr" rows="2">'+esc(sh.address||"")+'</textarea></label><label>'+t("leadL")+'<input class="f" id="si-lead" type="number" inputmode="numeric" min="0" max="30" dir="ltr" value="'+esc(String(sh.lead_days==null?2:sh.lead_days))+'"></label><button class="btn" type="button" data-act="shinfo">'+t("save")+'</button></div>';
  h+=tabs([["products","products"],["orders","shopOrders"],["earn","earnings"]],S.tab,"tab");
  if(S.tab==="orders")h+=orderCards(S.items);else if(S.tab==="earn")h+=mEarn();else h+=mProducts();
  return h+'</section>';}
@@ -749,6 +753,22 @@ async function doAct(el){
  var a=el.dataset.act,id=el.dataset.id,v=el.dataset.v;
  if(a==="tab"){S.tab=v;keepScroll();return;}
  if(a==="usrefresh"){await loadUserStats();keepScroll();return;}
+ if(a==="sgeo"){
+  if(!navigator.geolocation){toast(t("geoFail"));return;}
+  toast(t("locWorking"));
+  navigator.geolocation.getCurrentPosition(function(pos){
+   var u="https://www.google.com/maps?q="+pos.coords.latitude.toFixed(6)+","+pos.coords.longitude.toFixed(6);
+   sb.rpc("set_shop_location",{p_loc:u}).then(function(r){if(r.error){toast(errText(r.error));return;}return refreshShop().then(function(){toast(t("saved"));keepScroll();});});
+  },function(){toast(t("geoFail"));},{enableHighAccuracy:true,timeout:15000});
+  return;}
+ if(a==="qsend"){
+  var qv=parseInt(($("qf-"+id)||{}).value,10);
+  if(isNaN(qv)||qv<1){toast(t("fillAll"));return;}
+  try{var qr=await sb.rpc("quote_delivery",{p_order:parseInt(id,10),p_fee:qv});if(qr.error)throw qr.error;await refreshMine();toast(t("saved"));keepScroll();}catch(e){toast(errText(e));}
+  return;}
+ if(a==="qans"){
+  try{var ar2=await sb.rpc("answer_quote",{p_order:parseInt(id,10),p_shop:el.dataset.sid,p_accept:v==="1"});if(ar2.error)throw ar2.error;await loadOrders();toast(t("saved"));keepScroll();}catch(e){toast(errText(e));}
+  return;}
  if(a==="phdel"){var pl=phList(v);pl.splice(parseInt(id,10),1);var pb=$("ph-"+v);if(pb)pb.innerHTML=phInner(v);return;}
  if(a==="avdel"){try{await setAvatarUrl(null);toast(t("saved"));keepScroll();}catch(e){toast(errText(e));}return;}
  if(a==="forgot"){S.authMode="forgot";S.authErr="";S.authMsg="";render();return;}
@@ -801,6 +821,7 @@ async function doAct(el){
    navigator.geolocation.getCurrentPosition(function(pos){
     S.geo="https://www.google.com/maps?q="+pos.coords.latitude.toFixed(6)+","+pos.coords.longitude.toFixed(6);
     S.geoAcc=Math.round(pos.coords.accuracy||0);var gc=$("geo-card");if(gc)gc.outerHTML=locCard();
+    loadPreview().then(function(){var sx=$("sumbox");if(sx)sx.innerHTML=sumHtml();},function(){});
     if(S.user)sb.rpc("save_address",{p_loc:S.geo}).then(function(){if(S.profile)S.profile.addr_loc=S.geo;},function(){});
    },function(){toast(t("geoFail"));},{enableHighAccuracy:true,timeout:15000});
   }else if(a==="shinfo"){
@@ -1422,7 +1443,7 @@ function pkgDue(o,k,g){
  var tot=0,sub=0;(o.order_items||[]).forEach(function(i){if(i.status!=="cancelled")tot+=i.unit_price_iqd*i.qty;});
  g.forEach(function(i){if(i.status!=="cancelled")sub+=i.unit_price_iqd*i.qty;});
  if(!sub)return 0;
- var fee=sub>=100000?0:3000,d=0;
+ var pf0=pfOf(o.id,k),fee=pf0?((pf0.status==="fixed"||pf0.status==="accepted")?pf0.fee_iqd:0):(sub>=100000?0:3000),d=0;
  if(o.discount_iqd){d=o.disc_shop_id?(o.disc_shop_id===k?o.discount_iqd:0):Math.round(o.discount_iqd*sub/(tot||1));}
  return Math.max(0,sub+fee-d);}
 function pkgBlock(o){
@@ -1440,14 +1461,14 @@ function pkgBlock(o){
    +'<div class="pbar" aria-hidden="true">'+[0,1,2,3,4,5].map(function(q){return '<i'+(st!==6&&q<=st?' class="on"':'')+'></i>';}).join("")+'</div>'
    +(st===6?'':(fin?(at.delivered?'<div class="from">✓ '+t("deliveredAt")+': '+fmtTime(at.delivered)+'</div>':''):'<div class="from">'+t("etaL")+': '+(eta?'<b>'+fmtDate(eta)+'</b>':t("etaNone"))+(late?' <span class="late-t">⚠ '+t("lateL")+'</span>':'')+'</div>'))
    +g.map(function(i){return '<div class="from">'+num(i.qty)+' × '+esc(i.products?L(i.products,"name"):"")+szTag(i)+(i.status==="cancelled"?' · '+t("st")[6]:'')+'</div>';}).join("")
-   +(st<5?'<div class="sum"><span class="from">'+t("payOnDel")+'</span><b>'+money(pkgDue(o,k,g))+'</b></div>':'')
+   +feeRow(o,k)+(st<5&&!pfPend(o.id,k)?'<div class="sum"><span class="from">'+t("payOnDel")+'</span><b>'+money(pkgDue(o,k,g))+'</b></div>':'')
    +(tl?'<details><summary class="from">'+t("timeline")+'</summary><div class="tl">'+tl+'</div></details>':'')
    +(st<5?chatBtn(k):'')+'</div>';});
  return h;}
 function markSeen(){
  try{var key="krp_seen_"+(S.user?S.user.id:""),m={};(S.orders||[]).forEach(function(o){m[o.id]=ordSig(o);});localStorage.setItem(key,JSON.stringify(m));}catch(e){}
  S.ordNew=0;}
-function ordSig(o){return (o.order_items||[]).map(function(i){return i.id+":"+i.status+":"+(i.eta_date||"");}).join("|");}
+function ordSig(o){return (o.order_items||[]).map(function(i){return i.id+":"+i.status+":"+(i.eta_date||"");}).join("|")+"#"+Object.keys(S.pf||{}).filter(function(k){return k.indexOf(o.id+"|")===0;}).map(function(k){return S.pf[k].status+S.pf[k].fee_iqd;}).join(",");}
 function checkOrdNew(silent){
  var cnt=0,had=false,m={};
  try{var raw=localStorage.getItem("krp_seen_"+(S.user?S.user.id:""));if(raw){m=JSON.parse(raw);had=true;}}catch(e){}
@@ -1618,7 +1639,7 @@ function splitFor(items,sid){
   if(i.status==="delivered"){r.sales+=i.unit_price_iqd*i.qty;r.comm+=commOf(i);}});
  Object.keys(g).forEach(function(k){var it=g[k],all=0,live=it.filter(function(i){return i.status!=="cancelled";});
   it.forEach(function(i){all+=i.unit_price_iqd*i.qty;});
-  if(live.length&&live.every(function(i){return i.status==="delivered";}))r.fee+=(all>=100000?0:3000);});
+  if(live.length&&live.every(function(i){return i.status==="delivered";})){var pf1=pfOf(k,sid);r.fee+=pf1?((pf1.status==="fixed"||pf1.status==="accepted")?pf1.fee_iqd:0):(all>=100000?0:3000);}});
  var ds=Math.round(discByShop(items)[sid]||0),dp=Math.round(discPlat(items)[sid]||0),comm=Math.round(r.comm);
  return {cash:Math.round(r.sales)+r.fee-ds-dp,merch:Math.round(r.sales)-comm-ds,deliv:r.fee,admin:comm-dp};}
 function splitSum(list){return list.reduce(function(a,x){a.cash+=x.cash;a.merch+=x.merch;a.deliv+=x.deliv;a.admin+=x.admin;return a;},{cash:0,merch:0,deliv:0,admin:0});}
@@ -1671,6 +1692,67 @@ function userStatsPanel(){
   +tile(u.today,t("usDay"))+tile(u.week,t("usWeek"))+tile(u.new7,t("usNew"))
   +'</div><div class="from" style="margin-top:8px">'+t("usNote")+'</div><button class="btn ghost" type="button" data-act="usrefresh" style="margin-top:8px">↻ '+t("usRefresh")+'</button></section>';}
 function beat(){if(!S.user||document.visibilityState==="hidden")return;try{var p=sb.rpc("touch_seen");if(p&&p.then)p.then(function(){},function(){});}catch(e){}}
+
+var T29={
+ en:{p29Unk:"Depends on distance",p29Tiers:"By distance: 0–5 km 3,000 · 5–10 km 4,500 · 10–15 km 6,000 IQD. Free from 100,000 IQD per seller. Over 15 km the seller names the price.",p29QuoteS:"Over 15 km: price by seller",p29QuoteNote:"Over 15 km the seller names the delivery price after your order. You confirm it before anything is delivered.",
+  p29Wait:"Over 15 km ({km}): waiting for the seller's delivery price.",p29Quoted:"Delivery price from the seller",p29Accept:"Accept",p29Decline:"Decline (cancel this package)",p29Declined:"You declined the delivery price, this package was cancelled.",
+  p29Far:"Over 15 km: please name your delivery price",p29QuotedWait:"Sent, waiting for the customer",p29YourPrice:"Delivery price (IQD)",p29Send:"Send price",p29Pend:"Delivery price pending",p29Pend2:"The delivery price must be confirmed first.",
+  p29ShopLoc:"Shop location",p29ShopLocMiss:"Shop location missing",p29ShopLocSub:"Needed to calculate the delivery fee by distance. Tap the button while you are at your shop.",p29ShopLocBtn:"Set shop location here",p29ShopLocUpd:"Update location"},
+ ar:{p29Unk:"حسب المسافة",p29Tiers:"حسب المسافة: 0–5 كم 3,000 · 5–10 كم 4,500 · 10–15 كم 6,000 د.ع. مجاني من 100,000 د.ع لكل بائع. فوق 15 كم يحدد البائع السعر.",p29QuoteS:"فوق 15 كم: السعر يحدده البائع",p29QuoteNote:"فوق 15 كم يحدد البائع سعر التوصيل بعد طلبك، وتؤكده أنت قبل التسليم.",
+  p29Wait:"فوق 15 كم ({km}): بانتظار سعر التوصيل من البائع.",p29Quoted:"سعر التوصيل من البائع",p29Accept:"قبول",p29Decline:"رفض (إلغاء هذه الشحنة)",p29Declined:"رفضت سعر التوصيل وتم إلغاء هذه الشحنة.",
+  p29Far:"فوق 15 كم: يرجى تحديد سعر التوصيل",p29QuotedWait:"تم الإرسال، بانتظار العميل",p29YourPrice:"سعر التوصيل (د.ع)",p29Send:"إرسال السعر",p29Pend:"سعر التوصيل قيد الانتظار",p29Pend2:"يجب تأكيد سعر التوصيل أولاً.",
+  p29ShopLoc:"موقع المتجر",p29ShopLocMiss:"موقع المتجر غير محدد",p29ShopLocSub:"مطلوب لحساب رسوم التوصيل حسب المسافة. اضغط الزر وأنت في متجرك.",p29ShopLocBtn:"تحديد موقع المتجر هنا",p29ShopLocUpd:"تحديث الموقع"},
+ ku:{p29Unk:"بەپێی دووری",p29Tiers:"بەپێی دووری: ٠–٥ کم ٣,٠٠٠ · ٥–١٠ کم ٤,٥٠٠ · ١٠–١٥ کم ٦,٠٠٠ دینار. بێبەرامبەر لە ١٠٠,٠٠٠ دینار بۆ هەر فرۆشیارێک. لە ١٥ کم زیاتر فرۆشیار نرخ دیاری دەکات.",p29QuoteS:"لە ١٥ کم زیاتر: نرخ لەلایەن فرۆشیارەوە",p29QuoteNote:"لە ١٥ کم زیاتر فرۆشیار دوای داواکارییەکەت نرخی گەیاندن دیاری دەکات و تۆ پێش گەیاندن پشتڕاستی دەکەیتەوە.",
+  p29Wait:"لە ١٥ کم زیاتر ({km}): چاوەڕێی نرخی گەیاندنی فرۆشیار.",p29Quoted:"نرخی گەیاندن لە فرۆشیار",p29Accept:"قبوڵکردن",p29Decline:"ڕەتکردنەوە (هەڵوەشاندنەوەی ئەم پاکێتە)",p29Declined:"نرخی گەیاندنت ڕەتکردەوە و ئەم پاکێتە هەڵوەشێنرایەوە.",
+  p29Far:"لە ١٥ کم زیاتر: تکایە نرخی گەیاندن دیاری بکە",p29QuotedWait:"نێردرا، چاوەڕێی کڕیار",p29YourPrice:"نرخی گەیاندن (دینار)",p29Send:"ناردنی نرخ",p29Pend:"نرخی گەیاندن چاوەڕێیە",p29Pend2:"سەرەتا دەبێت نرخی گەیاندن پشتڕاست بکرێتەوە.",
+  p29ShopLoc:"شوێنی دوکان",p29ShopLocMiss:"شوێنی دوکان دیاری نەکراوە",p29ShopLocSub:"پێویستە بۆ حیسابکردنی کرێی گەیاندن بەپێی دووری. کاتێک لە دوکانەکەتدایت دوگمەکە دابگرە.",p29ShopLocBtn:"شوێنی دوکان لێرە دیاری بکە",p29ShopLocUpd:"نوێکردنەوەی شوێن"}
+};
+Object.keys(T29).forEach(function(k){Object.keys(T29[k]).forEach(function(x){T[k][x]=T29[k][x];});});
+function pfOf(o,sid){return (S.pf||{})[o+"|"+sid]||null;}
+function pfPend(o,sid){var p=pfOf(o,sid);return !!p&&(p.status==="need_quote"||p.status==="quoted");}
+async function loadPf(){try{var r=await sb.from("package_fees").select("*").limit(5000);S.pf={};if(!r.error)(r.data||[]).forEach(function(x){S.pf[x.order_id+"|"+x.shop_id]=x;});}catch(e){S.pf={};}}
+async function loadPreview(){
+ var loc=S.geo||(S.profile&&S.profile.addr_loc)||null;
+ if(!S.user||!loc||!(S.cart||[]).length){S.dkm=null;return;}
+ var r=await sb.rpc("delivery_preview",{p_loc:loc});
+ if(r.error){S.dkm=null;return;}
+ var m={};(r.data||[]).forEach(function(x){m[x.shop_id]=(x.km==null?null:Number(x.km));});S.dkm=m;}
+function tierFee(km){return km<=5?3000:(km<=10?4500:6000);}
+function kmTxt(km){return km==null?"":(num(Math.round(Number(km)*10)/10)+" km");}
+function feeInfo(sub,sid){
+ if(sub>=100000)return {fee:0,st:"free"};
+ var m=S.dkm;
+ if(!m||!(sid in m))return {fee:0,st:"unk"};
+ var km=m[sid];
+ if(km==null)return {fee:3000,st:"fixed",km:null};
+ if(km<=15)return {fee:tierFee(km),st:"fixed",km:km};
+ return {fee:0,st:"quote",km:km};}
+function feeCell(g){var f=feeInfo(g.sub,g.id);
+ if(f.st==="free")return t("free");
+ if(f.st==="unk")return t("p29Unk");
+ if(f.st==="quote")return t("p29QuoteS")+" · "+kmTxt(f.km);
+ return money(f.fee)+(f.km!=null?" · "+kmTxt(f.km):"");}
+function totals(){var sub=0,fee=0,unk=0,q=0;shopGroups().forEach(function(g){sub+=g.sub;var f=feeInfo(g.sub,g.id);fee+=f.fee;if(f.st==="unk")unk++;if(f.st==="quote")q++;});var disc=S.coupon?Math.min(Number(S.coupon.discount)||0,sub):0;return {sub:sub,fee:fee,disc:disc,tot:sub+fee-disc,unk:unk,q:q};}
+function feeLine(x){return '<div class="sum"><span>'+t("del")+'</span><span>'+(x.unk?t("p29Unk"):(x.fee?money(x.fee):(x.q?"—":t("free"))))+'</span></div>'+(x.q?'<div class="from">'+t("p29QuoteNote")+'</div>':'')+(x.unk?'<div class="from">'+t("p29Tiers")+'</div>':'');}
+function feeRow(o,k){
+ var pf=pfOf(o.id,k);if(!pf)return "";
+ var km=pf.km!=null?kmTxt(pf.km):"";
+ if(pf.status==="need_quote")return '<div class="msg">⏳ '+t("p29Wait").replace("{km}",km)+'</div>';
+ if(pf.status==="quoted")return '<div class="msg feebox"><b>'+t("p29Quoted")+': '+money(pf.fee_iqd)+'</b><div class="from">'+km+'</div><div class="row"><button class="btn" type="button" data-act="qans" data-id="'+o.id+'" data-sid="'+k+'" data-v="1">'+t("p29Accept")+'</button><button class="btn ghost" type="button" data-act="qans" data-id="'+o.id+'" data-sid="'+k+'" data-v="0">'+t("p29Decline")+'</button></div></div>';
+ if(pf.status==="declined")return '<div class="from">'+t("p29Declined")+'</div>';
+ return '<div class="sum"><span class="from">'+t("del")+(km?' · '+km:'')+'</span><span class="from">'+(pf.fee_iqd?money(pf.fee_iqd):t("free"))+'</span></div>';}
+function feeMerch(g){
+ var i0=g[0],pf=pfOf(i0.order_id,i0.shop_id);if(!pf)return "";
+ var km=pf.km!=null?kmTxt(pf.km):"";
+ if(pf.status==="need_quote"||pf.status==="quoted"){
+  if(!(S.shop&&S.shop.id===i0.shop_id))return '<div class="from">🚚 '+km+' · '+t("p29Pend")+'</div>';
+  return '<div class="msg feebox"><b>'+t("p29Far")+' ('+km+')</b>'+(pf.status==="quoted"?'<div class="from">'+t("p29QuotedWait")+': '+money(pf.fee_iqd)+'</div>':'')
+   +'<label>'+t("p29YourPrice")+'<input class="f" id="qf-'+i0.order_id+'" type="number" inputmode="numeric" min="1" dir="ltr" value="'+(pf.status==="quoted"?pf.fee_iqd:"")+'"></label><button class="btn" type="button" data-act="qsend" data-id="'+i0.order_id+'">'+t("p29Send")+'</button></div>';}
+ return '<div class="from">🚚 '+km+' · '+(pf.fee_iqd?money(pf.fee_iqd):t("free"))+'</div>';}
+function shopLocCard(){
+ var ll=llOf(S.shop.loc_url);
+ if(!ll)return '<div class="panel"><div class="msg"><b>📍 '+t("p29ShopLocMiss")+'</b><div class="from">'+t("p29ShopLocSub")+'</div></div><button class="btn" type="button" data-act="sgeo">📍 '+t("p29ShopLocBtn")+'</button></div>';
+ return '<div class="panel"><b>📍 '+t("p29ShopLoc")+'</b><div class="from" dir="ltr" style="text-align:start">'+ll+'</div><iframe class="locmap" loading="lazy" title="map" src="https://maps.google.com/maps?q='+ll+'&z=17&output=embed"></iframe><button class="btn ghost" type="button" data-act="sgeo">↻ '+t("p29ShopLocUpd")+'</button></div>';}
 /* ---------- Events ---------- */
 document.addEventListener("click",function(e){
  var el=e.target.closest("[data-act],[data-go],[data-p],[data-fav],[data-add],[data-q],[data-auth],#logo,#logout,#retry,#langs button");if(!el)return;
