@@ -436,10 +436,15 @@ function listView(title,list){
  return h+(list.length?'<div class="grid">'+sorted(list).map(card).join("")+'</div>':'<div class="empty">'+t("none")+'</div>');
 }
 function catGrid(){return '<div class="cats">'+S.cats.filter(function(c){return !c.parent_id;}).map(catTile).join("")+'</div>';}
+function allProducts(){
+ if(!S.prods.length)return '<h2>'+t("allP")+'</h2><div class="empty">'+t("noProducts")+'</div>';
+ var list=sorted(applyFilters(S.prods)),n=S.homeN||24,h=sortBar(t("allP"),list.length)+filterPanel();
+ if(!list.length)return h+'<div class="empty">'+t("none")+'</div>';
+ return h+'<div class="grid">'+list.slice(0,n).map(card).join("")+'</div>'+(list.length>n?'<div class="row" style="justify-content:center;margin-top:12px"><button class="btn ghost" type="button" data-act="homemore">'+t("moreL")+' ('+num(list.length-n)+')</button></div>':'');}
 function vHome(){
  return bannerHtml()
   +'<section><h2>'+t("cats")+'</h2>'+catGrid()+'</section>'
-  +featSection()+'<section><h2>'+t("feat")+'</h2>'+(S.prods.length?'<div class="grid">'+S.prods.slice(0,6).map(card).join("")+'</div>':'<div class="empty">'+t("noProducts")+'</div>')+'</section>';
+  +featSection()+'<section>'+allProducts()+'</section>';
 }
 function vProduct(id){
  var p=prod(id);if(!p)return '<div class="empty">'+t("none")+'</div>';
@@ -842,6 +847,7 @@ async function doAct(el){
  if(a==="myord"){S.cartTab="orders";try{await loadOrders();}catch(e8){}go("cart");return;}
  if(a==="img"){S.pimg=S.pimg||{};S.pimg[id]=parseInt(v,10);keepScroll();return;}
  if(a==="pedit"){S.edit=parseInt(id,10);var ep0=S.mine.filter(function(x){return x.id===S.edit;})[0];VV("e");S.vv.e=hasVar(ep0)?{list:ep0.colors.slice(),st:Object.assign({},ep0.size_stock||{})}:{list:[],st:{}};render();return;}
+ if(a==="homemore"){S.homeN=(S.homeN||24)+24;keepScroll();return;}
  if(a==="vtog"){var vk=el.dataset.k,vs=VV(vk),ix=vs.list.indexOf(v);if(ix>-1)vs.list.splice(ix,1);else{if(vs.list.length>=30){toast(t("p34Max"));return;}vs.list.push(v);}vRender(vk);return;}
  if(a==="vfree"){var fk=el.dataset.k,fi=$("v-free-"+fk),fv=(fi.value||"").replace(/[|]/g,"").trim().slice(0,30),fs_=VV(fk);if(/^[cp]:/.test(fv))fv=fv.slice(2).trim();if(!fv)return;if(fs_.list.indexOf(fv)<0){if(fs_.list.length>=30){toast(t("p34Max"));return;}fs_.list.push(fv);}vRender(fk);return;}
  if(a==="vsel"){var pp=prod(parseInt(id,10)),hs=pp&&pp.sizes&&pp.sizes.some(function(k){return k.indexOf("|")>-1;});S.vr=S.vr||{};S.sz=S.sz||{};S.vr[id]=v;if(!hs)S.sz[id]=v;else if(S.sz[id]&&vParts(S.sz[id]).v!==v)delete S.sz[id];keepScroll();return;}
@@ -1784,6 +1790,8 @@ var T33={
  ar:{p33Prov:"المحافظة",p33Town:"المدينة / البلدة / القرية",p33TownPh:"مثال: سوران، عينكاوة، زاخو…",p33CityBad:"يرجى إدخال مدينتك أو بلدتك أو قريتك (حرفان على الأقل).",p33Invite:"يلزم رمز صالح من المشرف للمتاجر خارج أربيل. يرجى التواصل مع المشرف أولاً.",p33Code:"رمز المشرف (خارج أربيل فقط)",p33CodeHint:"هل تبيع من خارج أربيل؟ تواصل مع المشرف أولاً ثم أدخل الرمز الذي تستلمه.",p33InvT:"رموز البائعين (خارج أربيل)",p33InvNew:"إنشاء رمز",p33InvNote:"ملاحظة (مثلاً اسم البائع)",p33Used:"مستخدم",p33Unused:"غير مستخدم"},
  ku:{p33Prov:"پارێزگا",p33Town:"شار / شارۆچکە / گوند",p33TownPh:"بۆ نموونە: سۆران، عەنکاوە، زاخۆ…",p33CityBad:"تکایە شار، شارۆچکە یان گوندەکەت بنووسە (لانیکەم ٢ پیت).",p33Invite:"بۆ فرۆشگا لە دەرەوەی هەولێر کۆدێکی دروستی بەڕێوەبەر پێویستە. تکایە سەرەتا پەیوەندی بە بەڕێوەبەرەوە بکە.",p33Code:"کۆدی بەڕێوەبەر (تەنها لە دەرەوەی هەولێر)",p33CodeHint:"لە دەرەوەی هەولێر دەفرۆشیت؟ سەرەتا پەیوەندی بە بەڕێوەبەرەوە بکە، پاشان ئەو کۆدە بنووسە کە وەریدەگریت.",p33InvT:"کۆدی فرۆشیاران (دەرەوەی هەولێر)",p33InvNew:"دروستکردنی کۆد",p33InvNote:"تێبینی (بۆ نموونە ناوی فرۆشیار)",p33Used:"بەکارهاتوو",p33Unused:"بەکارنەهاتوو"}};
 Object.keys(T33).forEach(function(k){Object.keys(T33[k]).forEach(function(x){T[k][x]=T33[k][x];});});
+var T35={en:{allP:"All products",moreL:"Show more"},ar:{allP:"كل المنتجات",moreL:"عرض المزيد"},ku:{allP:"هەموو کاڵاکان",moreL:"زیاتر پیشان بدە"}};
+Object.keys(T35).forEach(function(k){Object.keys(T35[k]).forEach(function(x){T[k][x]=T35[k][x];});});
 var T34={
  en:{p34T:"Colors & patterns (optional)",p34Hint:"Add the colors or patterns this product comes in. You enter the stock for each one (and each size).",p34Colors:"Colors",p34Patterns:"Patterns",p34Own:"Own option, e.g. Black/White",p34StockHint:"Stock per option:",p34NeedStock:"Enter stock for at least one option.",p34Pick:"Color / pattern",p34Choose:"Please choose color/pattern and size first.",p34Max:"Maximum 30 options."},
  ar:{p34T:"الألوان والنقوش (اختياري)",p34Hint:"أضف الألوان أو النقوش المتوفرة لهذا المنتج. تدخل المخزون لكل خيار (ولكل مقاس).",p34Colors:"الألوان",p34Patterns:"النقوش",p34Own:"خيار خاص، مثل أسود/أبيض",p34StockHint:"المخزون لكل خيار:",p34NeedStock:"أدخل مخزوناً لخيار واحد على الأقل.",p34Pick:"اللون / النقش",p34Choose:"يرجى اختيار اللون/النقش والمقاس أولاً.",p34Max:"الحد الأقصى 30 خياراً."},
