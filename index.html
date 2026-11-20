@@ -363,7 +363,7 @@ function toast(msg){var el=$("toast");el.innerHTML='<span>'+esc(msg)+'</span>';c
 function go(h){if(location.hash==="#"+h)render();else location.hash=h;}
 function cartCount(){return S.cart.reduce(function(a,i){return a+i.qty;},0);}
 function keepScroll(){var y=window.scrollY;render();window.scrollTo(0,y);}
-function errText(e){var m=(e&&e.message)||"";if(/invite required/.test(m))return t("p33Invite");if(/city invalid/.test(m))return t("p33CityBad");if(/delivery price pending/.test(m))return t("p29Pend2");if(/unavailable item/.test(m))return t("unavailable");if(/missing fields/.test(m))return t("fillAll");if(/invalid phone/.test(m))return t("phoneBad");if(/terms required/.test(m))return t("mustAccept");if(/coupon own/.test(m))return t("cpOwn");if(/coupon expired/.test(m))return t("cpExpired");if(/coupon used/.test(m))return t("cpUsed");if(/coupon min/.test(m))return t("cpMin");if(/coupon first/.test(m))return t("cpFirst");if(/coupon invalid/.test(m))return t("cpInvalid");if(/rate limit/.test(m))return t("rateLimitMsg");if(/reason required/.test(m))return t("reasonNeeded");if(/invalid size/.test(m))return t("chooseSize");if(/account blocked/.test(m))return t("blockedMsg");if(/too many open/.test(m))return t("tooMany");if(/cannot cancel/.test(m))return t("cancelLate");return m||t("error");}
+function errText(e){var m=(e&&e.message)||"";if(/max banners/.test(m))return t("p36Max");if(/invite required/.test(m))return t("p33Invite");if(/city invalid/.test(m))return t("p33CityBad");if(/delivery price pending/.test(m))return t("p29Pend2");if(/unavailable item/.test(m))return t("unavailable");if(/missing fields/.test(m))return t("fillAll");if(/invalid phone/.test(m))return t("phoneBad");if(/terms required/.test(m))return t("mustAccept");if(/coupon own/.test(m))return t("cpOwn");if(/coupon expired/.test(m))return t("cpExpired");if(/coupon used/.test(m))return t("cpUsed");if(/coupon min/.test(m))return t("cpMin");if(/coupon first/.test(m))return t("cpFirst");if(/coupon invalid/.test(m))return t("cpInvalid");if(/rate limit/.test(m))return t("rateLimitMsg");if(/reason required/.test(m))return t("reasonNeeded");if(/invalid size/.test(m))return t("chooseSize");if(/account blocked/.test(m))return t("blockedMsg");if(/too many open/.test(m))return t("tooMany");if(/cannot cancel/.test(m))return t("cancelLate");return m||t("error");}
 function needLogin(){S.authMsg=t("loginFirst");S.authMode="login";go("account");}
 
 /* ---------- Data ---------- */
@@ -1075,10 +1075,11 @@ var T4={
 Object.keys(T4).forEach(function(k){Object.keys(T4[k]).forEach(function(x){T[k][x]=T4[k][x];});});
 function isFeat(p){return !!p.featured_until&&new Date(p.featured_until)>new Date();}
 function heroHtml(){return '<div class="banner"><b>'+t("hero")+'</b><small>'+t("heroSub")+'</small><button type="button" data-go="all">'+t("shop")+'</button></div>';}
+function bLive(b){return b.active&&(!b.ends_at||new Date(b.ends_at)>new Date());}
 function bannerHtml(){
- var l=(S.banners||[]).filter(function(b){return b.active&&(!b.ends_at||new Date(b.ends_at)>new Date());});
+ var l=(S.banners||[]).filter(bLive).slice(0,3);
  if(!l.length)return heroHtml();
- return '<div class="car">'+l.map(function(b){return '<button type="button" class="slide" data-go="'+(b.product_id?'p-'+b.product_id:'all')+'"><img src="'+esc(b.image_url)+'" alt="">'+(b.title?'<span>'+esc(b.title)+'</span>':'')+'</button>';}).join("")+'</div>';}
+ return '<div class="car">'+l.map(function(b){return '<button type="button" class="slide" data-go="'+(b.shop_id?'shop-'+b.shop_id:(b.product_id?'p-'+b.product_id:'all'))+'"><img src="'+esc(b.image_url)+'" alt="">'+(b.title?'<span>'+esc(b.title)+'</span>':'')+'</button>';}).join("")+'</div>';}
 function featSection(){
  var l=S.prods.filter(isFeat);
  return l.length?'<section><h2>★ '+t("featSection")+'</h2><div class="grid">'+l.slice(0,6).map(card).join("")+'</div></section>':'';}
@@ -1088,26 +1089,28 @@ function featBtns(p){
  else b='<button class="btn ghost" type="button" data-act="feat" data-id="'+p.id+'" data-v="7">'+t("feat7")+'</button><button class="btn ghost" type="button" data-act="feat" data-id="'+p.id+'" data-v="30">'+t("feat30")+'</button>';
  return '<div class="row" style="flex-wrap:wrap;gap:6px;margin-top:6px">'+b+'</div>';}
 function admBanners(){
- var a=S.adm,h='<form class="panel" id="bform" novalidate><b>'+t("addBanner")+'</b>'
+ var a=S.adm,live=(a.banners||[]).filter(bLive).length,h='<form class="panel" id="bform" novalidate><b>'+t("addBanner")+'</b><div class="from">'+t("p36Count").replace("{n}",num(live))+'</div>'
   +'<label>'+t("bannerImg")+'<input class="f" id="b-img" type="file" accept="image/*"></label>'
   +'<label>'+t("bannerTitle")+'<input class="f" id="b-title"></label>'
+  +'<label>'+t("p36Shop")+'<select id="b-shop" class="f"><option value="">—</option>'+(a.shops||[]).filter(function(x){return x.status==="approved";}).map(function(x){return '<option value="'+x.id+'">'+esc(x.name)+'</option>';}).join("")+'</select></label>'
   +'<label>'+t("bannerLink")+'<select id="b-prod" class="f"><option value="">—</option>'+a.prods.filter(function(p){return p.active;}).map(function(p){return '<option value="'+p.id+'">'+esc(L(p,"name"))+'</option>';}).join("")+'</select></label>'
   +'<label>'+t("bannerDays")+'<input class="f" id="b-days" type="number" inputmode="numeric" min="1" dir="ltr" value="30"></label>'
   +'<div id="berr" style="color:var(--price);min-height:20px" role="alert"></div><button class="btn" type="submit"'+(S.busy?" disabled":"")+'>'+(S.busy?t("uploading"):t("addBanner"))+'</button></form>';
  h+='<div class="panel">'+((a.banners||[]).length?a.banners.map(function(b){
-  var live=b.active&&(!b.ends_at||new Date(b.ends_at)>new Date());
-  return '<div class="order"><div class="row"><div class="thumb img" style="background:var(--bg)"><img src="'+esc(b.image_url)+'" alt=""></div><div class="info"><div style="font-weight:500">'+esc(b.title||"—")+'</div><div class="from">'+(b.ends_at?t("until")+' '+esc(b.ends_at.slice(0,10)):'')+'</div>'+(live?'':'<span class="pill">'+t("hidden")+'</span>')+'</div></div>'
+  var live=bLive(b),sh=(a.shops||[]).filter(function(x){return x.id===b.shop_id;})[0];
+  return '<div class="order"><div class="row"><div class="thumb img" style="background:var(--bg)"><img src="'+esc(b.image_url)+'" alt=""></div><div class="info"><div style="font-weight:500">'+esc(b.title||"—")+'</div><div class="from">'+(sh?'🏪 '+esc(sh.name)+' · ':'')+(b.ends_at?t("until")+' '+esc(b.ends_at.slice(0,10)):'')+'</div>'+(live?'':'<span class="pill">'+t("hidden")+'</span>')+'</div></div>'
    +'<div class="row"><button class="btn ghost" type="button" data-act="btoggle" data-id="'+b.id+'" data-v="'+(!b.active)+'">'+(b.active?t("hide"):t("show"))+'</button><button class="btn ghost" type="button" data-act="bdel" data-id="'+b.id+'">'+t("delBtn")+'</button></div></div>';}).join(""):'<div class="from">'+t("noItems")+'</div>')+'</div>';
  return h;}
 async function doAddBanner(){
  var f=$("b-img").files[0],days=parseInt($("b-days").value,10);
  if(!f){$("berr").textContent=t("needImg");return;}
  if(isNaN(days)||days<1){$("berr").textContent=t("fillAll");return;}
- var pid=$("b-prod").value,title=$("b-title").value.trim();
+ var pid=$("b-prod").value,title=$("b-title").value.trim(),sid=$("b-shop").value;
+ if((S.adm.banners||[]).filter(bLive).length>=3){$("berr").textContent=t("p36Max");return;}
  S.busy=true;render();
  try{
   var u=await uploadImg(f,1200);
-  var r=await sb.from("banners").insert({title:title||null,image_url:u,product_id:pid?parseInt(pid,10):null,ends_at:new Date(Date.now()+days*864e5).toISOString(),active:true});
+  var r=await sb.from("banners").insert({title:title||null,image_url:u,product_id:pid?parseInt(pid,10):null,shop_id:sid||null,ends_at:new Date(Date.now()+days*864e5).toISOString(),active:true});
   if(r.error)throw r.error;
   await loadAdmin();await loadPublic();
  }catch(e){S.busy=false;render();var er=$("berr");if(er)er.textContent=errText(e);return;}
@@ -1792,6 +1795,8 @@ var T33={
 Object.keys(T33).forEach(function(k){Object.keys(T33[k]).forEach(function(x){T[k][x]=T33[k][x];});});
 var T35={en:{allP:"All products",moreL:"Show more"},ar:{allP:"كل المنتجات",moreL:"عرض المزيد"},ku:{allP:"هەموو کاڵاکان",moreL:"زیاتر پیشان بدە"}};
 Object.keys(T35).forEach(function(k){Object.keys(T35[k]).forEach(function(x){T[k][x]=T35[k][x];});});
+var T36={en:{p36Shop:"Linked shop (opens the shop profile)",p36Count:"Active banners: {n} of 3",p36Max:"Maximum 3 active banners. Hide or delete one first."},ar:{p36Shop:"المتجر المرتبط (يفتح ملف المتجر)",p36Count:"اللافتات النشطة: {n} من 3",p36Max:"الحد الأقصى 3 لافتات نشطة. أخفِ لافتة أو احذفها أولاً."},ku:{p36Shop:"فرۆشگای بەستراو (پڕۆفایلی فرۆشگا دەکاتەوە)",p36Count:"بانەرە چالاکەکان: {n} لە ٣",p36Max:"زۆرترین ٣ بانەری چالاک. سەرەتا یەکێک بشارەوە یان بسڕەوە."}};
+Object.keys(T36).forEach(function(k){Object.keys(T36[k]).forEach(function(x){T[k][x]=T36[k][x];});});
 var T34={
  en:{p34T:"Colors & patterns (optional)",p34Hint:"Add the colors or patterns this product comes in. You enter the stock for each one (and each size).",p34Colors:"Colors",p34Patterns:"Patterns",p34Own:"Own option, e.g. Black/White",p34StockHint:"Stock per option:",p34NeedStock:"Enter stock for at least one option.",p34Pick:"Color / pattern",p34Choose:"Please choose color/pattern and size first.",p34Max:"Maximum 30 options."},
  ar:{p34T:"الألوان والنقوش (اختياري)",p34Hint:"أضف الألوان أو النقوش المتوفرة لهذا المنتج. تدخل المخزون لكل خيار (ولكل مقاس).",p34Colors:"الألوان",p34Patterns:"النقوش",p34Own:"خيار خاص، مثل أسود/أبيض",p34StockHint:"المخزون لكل خيار:",p34NeedStock:"أدخل مخزوناً لخيار واحد على الأقل.",p34Pick:"اللون / النقش",p34Choose:"يرجى اختيار اللون/النقش والمقاس أولاً.",p34Max:"الحد الأقصى 30 خياراً."},
