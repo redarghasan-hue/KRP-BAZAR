@@ -401,7 +401,7 @@ function needLogin(){S.authMsg=t("loginFirst");S.authMode="login";go("account");
 async function loadPublic(){
  try{
   var a=await sb.from("categories").select("*").order("sort");
-  var b=await sb.from("products").select("*,shops(id,name,logo_url)").eq("active",true).order("id",{ascending:false});
+  var b=await sb.from("products").select("*,shops(id,name,logo_url,express)").eq("active",true).order("id",{ascending:false});
   if(a.error||b.error)throw (a.error||b.error);
   S.cats=a.data.filter(function(c){return c.active!==false;});S.prods=b.data.filter(function(p){return !!cat(p.category_id);});S.loadErr=false;
   try{var rv=await sb.from("shop_reviews").select("*").order("id",{ascending:false}).limit(2000);S.reviews=rv.error?[]:(rv.data||[]);}catch(e2){S.reviews=[];}
@@ -477,7 +477,7 @@ function allProducts(){
 function vHome(){
  return bannerHtml()
   +'<section><h2>'+t("cats")+'</h2>'+catGrid()+'</section>'
-  +featSection()+'<section>'+allProducts()+'</section>'+reqCta();
+  +expTile()+featSection()+'<section>'+allProducts()+'</section>'+reqCta();
 }
 function vProduct(id){
  var p=prod(id);if(!p)return '<div class="empty">'+t("none")+'</div>';
@@ -535,8 +535,8 @@ function sizeBox(first){
  return '<div id="sizebox" style="display:'+(first&&isClothing(first)&&!vOn("p")?'block':'none')+'"><b>'+t("sizesL")+'</b><div class="from">'+t("sizeStockHint")+'</div><span id="psznote">'+sizeNote(first).replace(' id="sznote"','')+'</span><div class="row" id="psizerow" style="flex-wrap:wrap;gap:10px;margin-top:6px">'+(first?sizeInputs(first,"szq",{},[]):"")+'</div></div>';}
 function readSizes(sel){var ss={},arr=[];Array.prototype.forEach.call(document.querySelectorAll(sel),function(el){var n=parseInt(el.value,10);if(n>0){ss[el.dataset.sz]=n;arr.push(el.dataset.sz);}});return {sizes:arr,stock:ss};}
 function lines(){return S.cart.map(function(i){return {p:prod(i.product_id),q:i.qty,s:i.size||""};}).filter(function(l){return l.p;});}
-function shopGroups(){var g={},ord=[];lines().forEach(function(l){var k=l.p.shop_id;if(!g[k]){g[k]={id:k,name:l.p.shops?l.p.shops.name:"",ls:[],sub:0};ord.push(k);}g[k].ls.push(l);g[k].sub+=l.p.price_iqd*l.q;});return ord.map(function(k){return g[k];});}
-function sumHtml(){var s=totals();return '<div class="sum"><span>'+t("sub")+'</span><span>'+money(s.sub)+'</span></div>'+feeLine(s)+(s.disc?'<div class="sum"><span>'+t("discL")+'</span><span>−'+money(s.disc)+'</span></div>':'')+'<div class="sum total"><span>'+t("total")+'</span><span class="price">'+money(s.tot)+'</span></div>'+(s.sub>=1000?'<div class="from">⭐ '+t("p39Earn").replace("{n}",num(Math.floor(s.sub/1000)))+'</div>':'');}
+function shopGroups(){var g={},ord=[];lines().forEach(function(l){var k=l.p.shop_id;if(!g[k]){g[k]={id:k,name:l.p.shops?l.p.shops.name:"",express:!!(l.p.shops&&l.p.shops.express),ls:[],sub:0};ord.push(k);}g[k].ls.push(l);g[k].sub+=l.p.price_iqd*l.q;});return ord.map(function(k){return g[k];});}
+function sumHtml(){var s=totals();return '<div class="sum"><span>'+t("sub")+'</span><span>'+money(s.sub)+'</span></div>'+feeLine(s)+(s.disc?'<div class="sum"><span>'+t("discL")+'</span><span>−'+money(s.disc)+'</span></div>':'')+'<div class="sum total"><span>'+t("total")+'</span><span class="price">'+money(s.tot)+'</span></div>'+(s.sub>=5000?'<div class="from">⭐ '+t("p39Earn").replace("{n}",num(Math.floor(s.sub/5000)))+'</div>':'');}
 function vCartItems(){
  if(!S.user)return '<h1>'+t("cart")+'</h1><div class="empty"><span>'+t("loginFirst")+'</span><button class="btn" type="button" data-go="account">'+t("login")+'</button></div>';
  var gs=shopGroups();
@@ -552,6 +552,8 @@ function vCartItems(){
  });
  return h+'<div class="panel">'+sumHtml()+'<button class="btn" type="button" data-go="checkout">'+t("checkout")+'</button></div>';
 }
+function expressBox(){var xs=shopGroups().filter(function(g){return g.express;});if(!xs.length)return "";
+ return '<div class="msg"><b>⚡ '+t("p40Title")+'</b><div class="from">'+t("p40Sub")+'</div>'+xs.map(function(g){return '<label style="flex-direction:row;align-items:center;gap:8px"><input type="checkbox" class="xp" value="'+g.id+'"> '+esc(g.name)+'</label>';}).join("")+'</div>';}
 function vCheckout(){
  if(!S.user||!lines().length)return vCart();
  var pr=S.profile||{};
@@ -563,13 +565,14 @@ function vCheckout(){
   +'<label>'+t("addr")+'<textarea class="f" id="f-addr" rows="3">'+esc(pr.addr_text||"")+'</textarea></label>'
   +locCard()
   +'<div class="row" style="align-items:flex-end"><label style="flex:1">'+t("couponCode")+'<input class="f" id="f-coupon" dir="ltr" autocapitalize="characters" value="'+esc(S.coupon?S.coupon.code:"")+'"'+(S.coupon?' disabled':'')+'></label><button class="btn ghost" type="button" data-act="'+(S.coupon?'cprem':'cpapply')+'">'+(S.coupon?t("removeL"):t("applyL"))+'</button></div><div class="from" id="cpmsg">'+(S.coupon?'✓ '+t("cpApplied"):'')+'</div>'
+  +expressBox()
   +'<div class="note" style="text-align:start;color:var(--ink)">'+t("cod")+'</div><div id="sumbox">'+sumHtml()+'</div>'
   +'<div id="err" style="color:var(--price);min-height:20px" role="alert"></div><button class="btn" type="submit"'+(S.busy?" disabled":"")+'>'+t("place")+'</button></form>';
 }
 function steps(cur){var h='<ol class="steps">';t("st").forEach(function(s,i){if(i===6&&cur!==6)return;if(i<6&&cur===6)return;h+='<li class="'+(i<=cur&&cur!==6?"on":"")+(i===6?" cx":"")+'"><i></i>'+s+'</li>';});return h+'</ol>';}
 function vDone(){
  var o=S.order;if(!o)return vHome();
- return '<div class="panel"><h1>'+t("done")+'</h1><div>'+t("orderNo")+': <b dir="ltr">#'+o.id+'</b></div><div>'+t("total")+': <span class="price">'+money(orderTotal(o))+'</span></div><div class="note" style="text-align:start">'+t("cod")+'</div></div>'
+ return '<div class="panel"><h1>'+t("done")+'</h1><div>'+t("orderNo")+': <b dir="ltr">#'+o.id+'</b></div><div>'+t("total")+': <span class="price">'+money(orderTotal(o))+'</span></div><div class="note" style="text-align:start">'+t("cod")+'</div>'+((S.expSent||[]).length?'<div class="msg">⚡ '+t("p40Pending")+'</div>':'')+'</div>'
   +'<div class="panel"><b>'+t("status")+'</b>'+steps(orderStep(o))+'</div><button class="btn" type="button" data-act="myord">'+t("myOrders")+'</button><button class="btn ghost" type="button" data-go="home">'+t("cont")+'</button>';
 }
 function vFavs(){
@@ -636,6 +639,7 @@ function render(){
  else if((m=r.match(/^rate-([0-9a-f-]{36})$/))){h=vRate(m[1]);active="cats";}
  else if((m=r.match(/^inv-(\d+)$/))){h=vInvoice(+m[1]);active="account";}
  else if(r==="request"){h=vRequest();active="account";}
+ else if(r==="express"){h=vExpress();active="home";}
  else if(r==="support"){h=vSupport();active="account";}
  else if(r==="chats"){h=vChats();active="account";}
  else if((m=r.match(/^chat-(\d+)$/))){h=vChat(+m[1]);active="account";}
@@ -802,7 +806,7 @@ function vShop(){
  if(sh.status==="pending")return h+'<div class="msg">'+t("shopPending")+'</div></section>';
  if(sh.status==="suspended")return h+'<div class="msg">'+t("shopSuspended")+'</div></section>';
  h+='<div class="row">'+logoImg(sh,48)+'<label style="flex:1">'+t("changeLogo")+'<input class="f" type="file" accept="image/*" data-cact="logo"></label></div>';
- h+=shopLocCard();h+='<div class="panel"><b>'+t("shopInfo")+'</b><label>'+t("shopPhone")+'<input class="f" id="si-phone" type="tel" inputmode="tel" dir="ltr" value="'+esc(S.shopPhone||"")+'"></label><label>'+t("shopAddr")+'<textarea class="f" id="si-addr" rows="2">'+esc(sh.address||"")+'</textarea></label><label>'+t("leadL")+'<input class="f" id="si-lead" type="number" inputmode="numeric" min="0" max="30" dir="ltr" value="'+esc(String(sh.lead_days==null?2:sh.lead_days))+'"></label><button class="btn" type="button" data-act="shinfo">'+t("save")+'</button></div>';
+ h+=shopLocCard();h+=expressCard();h+='<div class="panel"><b>'+t("shopInfo")+'</b><label>'+t("shopPhone")+'<input class="f" id="si-phone" type="tel" inputmode="tel" dir="ltr" value="'+esc(S.shopPhone||"")+'"></label><label>'+t("shopAddr")+'<textarea class="f" id="si-addr" rows="2">'+esc(sh.address||"")+'</textarea></label><label>'+t("leadL")+'<input class="f" id="si-lead" type="number" inputmode="numeric" min="0" max="30" dir="ltr" value="'+esc(String(sh.lead_days==null?2:sh.lead_days))+'"></label><button class="btn" type="button" data-act="shinfo">'+t("save")+'</button></div>';
  h+=tabs([["products","products"],["orders","shopOrders"],["earn","earnings"],["req","p39Req"]],S.tab,"tab");
  if(S.tab==="orders")h+=orderCards(S.items);else if(S.tab==="earn")h+=mEarn();else if(S.tab==="req")h+=mReqs();else h+=mProducts();
  return h+'</section>';}
@@ -816,7 +820,7 @@ function vInvoice(id){
  var d=invData(id),back='<button class="crumb noprint" type="button" data-go="account">‹ '+t("back")+'</button>';
  if(!d)return back+'<div class="empty">'+t("none")+'</div>';
  var o=d.o,sub=0,pts=0,by={},order=[];
- d.items.forEach(function(i){var sn=(i.shops&&i.shops.name)||(S.shop&&S.shop.name)||"";if(!by[sn]){by[sn]=[];order.push(sn);}by[sn].push(i);if(i.status!=="cancelled"){sub+=i.unit_price_iqd*i.qty;if(i.status==="delivered")pts+=Math.floor(i.unit_price_iqd*i.qty/1000);}});
+ d.items.forEach(function(i){var sn=(i.shops&&i.shops.name)||(S.shop&&S.shop.name)||"";if(!by[sn]){by[sn]=[];order.push(sn);}by[sn].push(i);if(i.status!=="cancelled"){sub+=i.unit_price_iqd*i.qty;if(i.status==="delivered")pts+=Math.floor(i.unit_price_iqd*i.qty/5000);}});
  var fee=d.mode==="s"?0:(Number(o.delivery_fee_iqd)||0),disc=d.mode==="s"?((S.shop&&o.disc_shop_id===S.shop.id)?(Number(o.disc_shop_iqd)||0):0):(Number(o.discount_iqd)||0),tot=sub+fee-disc;
  var h=back+'<div class="inv" id="invbox">'
   +'<div class="ir"><div><h1>'+t("p39InvT")+'</h1><div dir="ltr" style="font-weight:700">'+invNo(id)+'</div><small>'+esc(fmtTime(o.created_at))+'</small></div><div style="text-align:end"><b>'+esc(LEGAL.op)+'</b><br><small>'+esc(LEGAL.addr)+'<br><span dir="ltr">'+esc(LEGAL.phone)+' · '+esc(LEGAL.email)+'</span></small></div></div>'
@@ -830,6 +834,27 @@ function vInvoice(id){
   +'<small class="mut">'+t("p39Thanks")+'</small></div>'
   +'<div class="row noprint"><button class="btn" type="button" data-act="invprint">🖨 '+t("p39Print")+'</button></div>';
  return h;}
+function expShops(){var m={},out=[];(S.prods||[]).forEach(function(p){var x=p.shops;if(x&&x.express&&!m[x.id]){m[x.id]=1;out.push(x);}});return out;}
+function expTile(){if(!expShops().length)return "";return '<button class="panel" type="button" data-go="express" style="text-align:start;flex-direction:row;align-items:center;gap:12px;width:100%"><span style="font-size:30px">⚡</span><span><b>KRP Express</b><span class="from" style="display:block">'+t("p40Tile")+'</span></span></button>';}
+function vExpress(){
+ var xs=expShops(),h='<button class="crumb" type="button" data-go="home">‹ '+t("back")+'</button><h1>⚡ KRP Express</h1><div class="panel"><div>'+t("p40Intro")+'</div></div>';
+ if(!xs.length)return h+'<div class="empty">'+t("p40None")+'</div>';
+ h+='<h2>'+t("p40Shops")+'</h2><div class="panel">'+xs.map(function(x){return '<div class="order"><div class="sum"><b>'+esc(x.name)+'</b><button class="btn ghost" type="button" data-go="shop-'+x.id+'">'+t("p40Open")+'</button></div></div>';}).join("")+'</div>';
+ h+='<form class="panel" id="eform" novalidate><b>'+t("p40ErrT")+'</b><div class="from">'+t("p40ErrSub")+'</div>'
+  +'<label>'+t("p40Pick")+'<select class="f" id="x-shop">'+xs.map(function(x){return '<option value="'+x.id+'">'+esc(x.name)+'</option>';}).join("")+'</select></label>'
+  +'<label>'+t("p40ErrWhat")+'<textarea class="f" id="x-body" rows="4" maxlength="500" placeholder="'+esc(t("p40ErrPh"))+'"></textarea></label>'
+  +'<div id="xerr" style="color:var(--price);min-height:20px" role="alert"></div><button class="btn" type="submit">'+t("p40ErrSend")+'</button></form>';
+ return h;}
+async function doErrand(){
+ if(!S.user){go("account");return;}
+ var body=($("x-body").value||"").trim(),sid=$("x-shop").value,btn=document.querySelector("#eform button[type=submit]");
+ if(body.length<3){$("xerr").textContent=t("fillAll");return;}
+ if(btn)btn.disabled=true;
+ try{
+  var c=await sb.rpc("start_chat",{p_shop:sid});if(c.error)throw c.error;
+  var m=await sb.from("messages").insert({conversation_id:c.data,sender_id:S.user.id,body:"⚡ KRP Express\n"+body.slice(0,500)});if(m.error)throw m.error;
+  go("chat-"+c.data);
+ }catch(e){if(btn)btn.disabled=false;var er=$("xerr");if(er)er.textContent=errText(e);}}
 function reqCta(){return '<div class="panel" style="text-align:center;align-items:center"><b>'+t("p39CtaT")+'</b><span class="from">'+t("p39CtaS")+'</span><button class="btn" type="button" data-go="request">'+t("p39Btn")+'</button></div>';}
 function reqStatus(r){return '<span class="pill">'+t(r.status==="done"?"p39Done":"p39Open")+'</span>';}
 function vRequest(){
@@ -956,6 +981,7 @@ async function doAct(el){
  if(a==="myord"){S.cartTab="orders";try{await loadOrders();}catch(e8){}go("cart");return;}
  if(a==="img"){S.pimg=S.pimg||{};S.pimg[id]=parseInt(v,10);keepScroll();return;}
  if(a==="pedit"){S.edit=parseInt(id,10);var ep0=S.mine.filter(function(x){return x.id===S.edit;})[0];VV("e");S.vv.e=hasVar(ep0)?{list:ep0.colors.slice(),st:Object.assign({},ep0.size_stock||{})}:{list:[],st:{}};render();return;}
+ if(a==="expsw"){try{var nx=!S.shop.express;await upd("shops",{express:nx},"id",S.shop.id);S.shop.express=nx;await loadPublic();keepScroll();}catch(e8){toast(errText(e8));}return;}
  if(a==="invprint"){window.print();return;}
  if(a==="mreload"){S.mreq=undefined;keepScroll();return;}
  if(a==="reqdel"||a==="reqdone"){var rr=a==="reqdel"?await sb.from("product_requests").delete().eq("id",id):await sb.from("product_requests").update({status:"done"}).eq("id",id);if(rr.error){toast(errText(rr.error));return;}if(S.profile&&S.profile.role==="admin")await loadAdmin();await loadOrders();keepScroll();return;}
@@ -1933,14 +1959,25 @@ Object.keys(T37).forEach(function(k){Object.keys(T37[k]).forEach(function(x){T[k
 var T39={
  en:{p39Inv:"Invoice",p39InvT:"Invoice",p39CopyC:"Customer copy",p39CopyS:"Merchant copy",p39CopyA:"Admin copy",p39Pay:"Payment: cash on delivery",p39Print:"Print / save as PDF",p39Thanks:"Thank you for shopping with KRP Bazar.",p39EarnDone:"{n} points earned",
   p39Req:"Requests",p39CtaT:"Can't find what you need?",p39CtaS:"Tell us which product you are looking for.",p39Btn:"Request a product",p39ReqT:"Request a product",p39ReqHint:"Tell us what you are looking for. Merchants see your request (without your name) and may add the product.",p39ReqWhat:"What are you looking for?",p39ReqPh:"e.g. blue leather wallet, 7 cm sneakers size 42…",p39Send:"Send request",p39Sent:"Request sent. Thank you!",p39Many:"You can send at most 5 requests per day.",p39Mine:"My requests",p39Open:"open",p39Done:"done",p39MarkDone:"Mark as done",p39MerchHint:"Products customers are asking for. Add them to your shop if you can supply them.",p39Reload:"Refresh",
-  p39Pts:"Loyalty points",p39PtsInfo:"You earn 1 point per 1,000 IQD of goods after delivery. Redeeming points is coming soon.",p39Earn:"You will earn about {n} points after delivery."},
+  p39Pts:"Loyalty points",p39PtsInfo:"You earn 1 point per 5,000 IQD of goods after delivery. Redeeming points is coming soon.",p39Earn:"You will earn about {n} points after delivery."},
  ar:{p39Inv:"الفاتورة",p39InvT:"فاتورة",p39CopyC:"نسخة العميل",p39CopyS:"نسخة التاجر",p39CopyA:"نسخة المشرف",p39Pay:"الدفع: نقداً عند الاستلام",p39Print:"طباعة / حفظ PDF",p39Thanks:"شكراً لتسوقك من KRP Bazar.",p39EarnDone:"تم كسب {n} نقطة",
   p39Req:"الطلبات",p39CtaT:"لم تجد ما تحتاجه؟",p39CtaS:"أخبرنا عن المنتج الذي تبحث عنه.",p39Btn:"اطلب منتجاً",p39ReqT:"اطلب منتجاً",p39ReqHint:"أخبرنا عمّا تبحث عنه. يرى التجار طلبك (بدون اسمك) وقد يضيفون المنتج.",p39ReqWhat:"ماذا تبحث عنه؟",p39ReqPh:"مثال: محفظة جلد زرقاء، حذاء رياضي مقاس 42…",p39Send:"إرسال الطلب",p39Sent:"تم إرسال الطلب. شكراً!",p39Many:"يمكنك إرسال 5 طلبات كحد أقصى في اليوم.",p39Mine:"طلباتي",p39Open:"مفتوح",p39Done:"منجز",p39MarkDone:"تحديد كمنجز",p39MerchHint:"منتجات يطلبها الزبائن. أضفها إلى متجرك إن كنت تستطيع توفيرها.",p39Reload:"تحديث",
-  p39Pts:"نقاط الولاء",p39PtsInfo:"تكسب نقطة واحدة لكل 1,000 دينار من البضاعة بعد التسليم. استبدال النقاط قريباً.",p39Earn:"ستكسب حوالي {n} نقطة بعد التسليم."},
+  p39Pts:"نقاط الولاء",p39PtsInfo:"تكسب نقطة واحدة لكل 5,000 دينار من البضاعة بعد التسليم. استبدال النقاط قريباً.",p39Earn:"ستكسب حوالي {n} نقطة بعد التسليم."},
  ku:{p39Inv:"پسوولە",p39InvT:"پسوولە",p39CopyC:"کۆپیی کڕیار",p39CopyS:"کۆپیی فرۆشیار",p39CopyA:"کۆپیی بەڕێوەبەر",p39Pay:"پارەدان: کاش لە کاتی وەرگرتن",p39Print:"چاپ / پاشەکەوتکردن وەک PDF",p39Thanks:"سوپاس بۆ کڕینت لە KRP Bazar.",p39EarnDone:"{n} خاڵ بەدەستهات",
   p39Req:"داواکارییەکان",p39CtaT:"ئەوەی پێویستتە نەتدۆزییەوە؟",p39CtaS:"پێمان بڵێ چ کاڵایەک دەگەڕێیت.",p39Btn:"داواکردنی کاڵا",p39ReqT:"داواکردنی کاڵا",p39ReqHint:"پێمان بڵێ دەتەوێت چی بدۆزیتەوە. فرۆشیاران داواکارییەکەت دەبینن (بەبێ ناوەکەت) و لەوانەیە کاڵاکە زیاد بکەن.",p39ReqWhat:"بەدوای چیدا دەگەڕێیت؟",p39ReqPh:"بۆ نموونە: جزدانی چەرمی شین، پێڵاوی وەرزشی ژمارە ٤٢…",p39Send:"ناردنی داواکاری",p39Sent:"داواکارییەکە نێردرا. سوپاس!",p39Many:"ڕۆژانە زۆرترین ٥ داواکاری دەتوانیت بنێریت.",p39Mine:"داواکارییەکانم",p39Open:"کراوە",p39Done:"تەواوبوو",p39MarkDone:"وەک تەواوبوو دیاری بکە",p39MerchHint:"ئەو کاڵایانەی کڕیاران داوایان دەکەن. ئەگەر دەتوانیت دابینیان بکەیت بیانخەرە فرۆشگاکەتەوە.",p39Reload:"نوێکردنەوە",
-  p39Pts:"خاڵەکانی دڵسۆزی",p39PtsInfo:"بۆ هەر ١٬٠٠٠ دینار کاڵا، دوای گەیاندن خاڵێک وەردەگریت. بەکارهێنانی خاڵەکان بەم زووانە.",p39Earn:"دوای گەیاندن نزیکەی {n} خاڵ وەردەگریت."}};
+  p39Pts:"خاڵەکانی دڵسۆزی",p39PtsInfo:"بۆ هەر ٥٬٠٠٠ دینار کاڵا، دوای گەیاندن خاڵێک وەردەگریت. بەکارهێنانی خاڵەکان بەم زووانە.",p39Earn:"دوای گەیاندن نزیکەی {n} خاڵ وەردەگریت."}};
 Object.keys(T39).forEach(function(k){Object.keys(T39[k]).forEach(function(x){T[k][x]=T39[k][x];});});
+var T40={
+ en:{p40Offer:"Offer KRP Express",p40OfferSub:"Customers can ask for delivery within about 1 hour. For each express order you set the delivery price yourself (including the express surcharge). The customer then accepts or declines.",p40On:"on",p40Off:"off",p40TurnOn:"Turn on Express",p40TurnOff:"Turn off Express",
+  p40Title:"KRP Express (about 1 hour)",p40Sub:"Choose Express for a shop to get your order within about 1 hour. The merchant sets the delivery price after your order and you decide whether to accept it.",p40Pending:"Express requested. The merchant will send you a delivery price; please accept or decline it in your orders.",p40Wait:"Waiting for the merchant's express price…",p40Exp1:"Express order – set the total delivery price",p40Std:"Normal delivery would be",
+  p40Tile:"Urgent deliveries and small errands",p40Intro:"KRP Express is for urgent deliveries within about 1 hour and small errands. Merchants who offer Express set the price for each order, and you decide whether to accept it.",p40None:"No merchant offers Express right now.",p40Shops:"Express merchants",p40Open:"Open shop",p40ErrT:"Small errand",p40ErrSub:"Tell an Express merchant what you need. The merchant answers in the chat and names a price.",p40Pick:"Merchant",p40ErrWhat:"What do you need?",p40ErrPh:"e.g. 2 bottles of water and a phone charger, to Ankawa",p40ErrSend:"Send to merchant"},
+ ar:{p40Offer:"تقديم KRP Express",p40OfferSub:"يمكن للعملاء طلب التوصيل خلال ساعة تقريباً. تحدد أنت سعر التوصيل لكل طلب إكسبريس (مع رسم الإكسبريس). ثم يقبل العميل أو يرفض.",p40On:"مفعّل",p40Off:"متوقف",p40TurnOn:"تفعيل الإكسبريس",p40TurnOff:"إيقاف الإكسبريس",
+  p40Title:"KRP Express (خلال ساعة تقريباً)",p40Sub:"اختر الإكسبريس لمتجر ما لتصلك طلبيتك خلال ساعة تقريباً. يحدد التاجر سعر التوصيل بعد طلبك وتقرر أنت القبول أو الرفض.",p40Pending:"تم طلب الإكسبريس. سيرسل لك التاجر سعر التوصيل؛ يرجى قبوله أو رفضه من طلباتك.",p40Wait:"بانتظار سعر الإكسبريس من التاجر…",p40Exp1:"طلب إكسبريس – حدد سعر التوصيل الإجمالي",p40Std:"التوصيل العادي سيكون",
+  p40Tile:"توصيل عاجل ومشاوير صغيرة",p40Intro:"KRP Express للتوصيل العاجل خلال ساعة تقريباً وللمشاوير الصغيرة. التجار المشاركون يحددون السعر لكل طلب وتقرر أنت القبول.",p40None:"لا يوجد تاجر يقدّم الإكسبريس حالياً.",p40Shops:"تجار الإكسبريس",p40Open:"فتح المتجر",p40ErrT:"مشوار صغير",p40ErrSub:"أخبر تاجر إكسبريس بما تحتاجه. يرد التاجر في المحادثة ويحدد سعراً.",p40Pick:"التاجر",p40ErrWhat:"ماذا تحتاج؟",p40ErrPh:"مثال: قنينتا ماء وشاحن هاتف إلى عينكاوة",p40ErrSend:"إرسال إلى التاجر"},
+ ku:{p40Offer:"پێشکەشکردنی KRP Express",p40OfferSub:"کڕیاران دەتوانن گەیاندن لە ماوەی نزیکەی ١ کاتژمێردا بخوازن. بۆ هەر داواکارییەکی ئێکسپرێس تۆ نرخی گەیاندن (لەگەڵ زیادکراوی ئێکسپرێس) دیاری دەکەیت. پاشان کڕیار قبوڵی دەکات یان ڕەتی دەکاتەوە.",p40On:"چالاکە",p40Off:"کوژاوەتەوە",p40TurnOn:"چالاککردنی ئێکسپرێس",p40TurnOff:"کوژاندنەوەی ئێکسپرێس",
+  p40Title:"KRP Express (نزیکەی ١ کاتژمێر)",p40Sub:"ئێکسپرێس بۆ فرۆشگایەک هەڵبژێرە تا داواکارییەکەت لە ماوەی نزیکەی ١ کاتژمێردا بگات. فرۆشیار دوای داواکارییەکەت نرخی گەیاندن دیاری دەکات و تۆ بڕیار دەدەیت قبوڵی بکەیت.",p40Pending:"ئێکسپرێس داواکرا. فرۆشیار نرخی گەیاندنت بۆ دەنێرێت؛ تکایە لە داواکارییەکانتدا قبوڵی بکە یان ڕەتی بکەرەوە.",p40Wait:"چاوەڕێی نرخی ئێکسپرێسی فرۆشیار…",p40Exp1:"داواکاری ئێکسپرێس – نرخی گشتی گەیاندن دیاری بکە",p40Std:"گەیاندنی ئاسایی دەبوو",
+  p40Tile:"گەیاندنی بەپەلە و کاری بچووک",p40Intro:"KRP Express بۆ گەیاندنی بەپەلەیە لە ماوەی نزیکەی ١ کاتژمێردا و بۆ کاری بچووک. ئەو فرۆشیارانەی ئێکسپرێس پێشکەش دەکەن بۆ هەر داواکارییەک نرخ دیاری دەکەن و تۆ بڕیار دەدەیت.",p40None:"ئێستا هیچ فرۆشیارێک ئێکسپرێس پێشکەش ناکات.",p40Shops:"فرۆشیارانی ئێکسپرێس",p40Open:"کردنەوەی فرۆشگا",p40ErrT:"کاری بچووک",p40ErrSub:"بە فرۆشیارێکی ئێکسپرێس بڵێ چیت پێویستە. فرۆشیار لە چاتدا وەڵام دەداتەوە و نرخێک دیاری دەکات.",p40Pick:"فرۆشیار",p40ErrWhat:"چیت پێویستە؟",p40ErrPh:"بۆ نموونە: ٢ بوتڵ ئاو و شاژەری مۆبایل بۆ عەنکاوە",p40ErrSend:"ناردن بۆ فرۆشیار"}};
+Object.keys(T40).forEach(function(k){Object.keys(T40[k]).forEach(function(x){T[k][x]=T40[k][x];});});
 var T34={
  en:{p34T:"Colors & patterns (optional)",p34Hint:"Add the colors or patterns this product comes in. You enter the stock for each one (and each size).",p34Colors:"Colors",p34Patterns:"Patterns",p34Own:"Own option, e.g. Black/White",p34StockHint:"Stock per option:",p34NeedStock:"Enter stock for at least one option.",p34Pick:"Color / pattern",p34Choose:"Please choose color/pattern and size first.",p34Max:"Maximum 30 options."},
  ar:{p34T:"الألوان والنقوش (اختياري)",p34Hint:"أضف الألوان أو النقوش المتوفرة لهذا المنتج. تدخل المخزون لكل خيار (ولكل مقاس).",p34Colors:"الألوان",p34Patterns:"النقوش",p34Own:"خيار خاص، مثل أسود/أبيض",p34StockHint:"المخزون لكل خيار:",p34NeedStock:"أدخل مخزوناً لخيار واحد على الأقل.",p34Pick:"اللون / النقش",p34Choose:"يرجى اختيار اللون/النقش والمقاس أولاً.",p34Max:"الحد الأقصى 30 خياراً."},
@@ -1975,8 +2012,8 @@ function feeLine(x){return '<div class="sum"><span>'+t("del")+'</span><span>'+(x
 function feeRow(o,k){
  var pf=pfOf(o.id,k);if(!pf)return "";
  var km=pf.km!=null?kmTxt(pf.km):"";
- if(pf.status==="need_quote")return '<div class="msg">⏳ '+t("p29Wait").replace("{km}",km)+'</div>';
- if(pf.status==="quoted")return '<div class="msg feebox"><b>'+t("p29Quoted")+': '+money(pf.fee_iqd)+'</b><div class="from">'+km+'</div><div class="row"><button class="btn" type="button" data-act="qans" data-id="'+o.id+'" data-sid="'+k+'" data-v="1">'+t("p29Accept")+'</button><button class="btn ghost" type="button" data-act="qans" data-id="'+o.id+'" data-sid="'+k+'" data-v="0">'+t("p29Decline")+'</button></div></div>';
+ if(pf.status==="need_quote")return '<div class="msg">'+(pf.express?'⚡ '+t("p40Wait"):'⏳ '+t("p29Wait").replace("{km}",km))+'</div>';
+ if(pf.status==="quoted")return '<div class="msg feebox"><b>'+(pf.express?'⚡ ':'')+t("p29Quoted")+': '+money(pf.fee_iqd)+'</b><div class="from">'+km+'</div><div class="row"><button class="btn" type="button" data-act="qans" data-id="'+o.id+'" data-sid="'+k+'" data-v="1">'+t("p29Accept")+'</button><button class="btn ghost" type="button" data-act="qans" data-id="'+o.id+'" data-sid="'+k+'" data-v="0">'+t("p29Decline")+'</button></div></div>';
  if(pf.status==="declined")return '<div class="from">'+t("p29Declined")+'</div>';
  return '<div class="sum"><span class="from">'+t("del")+(km?' · '+km:'')+'</span><span class="from">'+(pf.fee_iqd?money(pf.fee_iqd):t("free"))+'</span></div>';}
 function feeMerch(g){
@@ -1984,9 +2021,11 @@ function feeMerch(g){
  var km=pf.km!=null?kmTxt(pf.km):"";
  if(pf.status==="need_quote"||pf.status==="quoted"){
   if(!(S.shop&&S.shop.id===i0.shop_id))return '<div class="from">🚚 '+km+' · '+t("p29Pend")+'</div>';
-  return '<div class="msg feebox"><b>'+t("p29Far")+' ('+km+')</b>'+(pf.status==="quoted"?'<div class="from">'+t("p29QuotedWait")+': '+money(pf.fee_iqd)+'</div>':'')
+  return '<div class="msg feebox"><b>'+(pf.express?'⚡ '+t("p40Exp1"):t("p29Far")+' ('+km+')')+'</b>'+(pf.express&&pf.std_fee?'<div class="from">'+t("p40Std")+': '+money(pf.std_fee)+'</div>':'')+(pf.status==="quoted"?'<div class="from">'+t("p29QuotedWait")+': '+money(pf.fee_iqd)+'</div>':'')
    +'<label>'+t("p29YourPrice")+'<input class="f" id="qf-'+i0.order_id+'" type="number" inputmode="numeric" min="1" dir="ltr" value="'+(pf.status==="quoted"?pf.fee_iqd:"")+'"></label><button class="btn" type="button" data-act="qsend" data-id="'+i0.order_id+'">'+t("p29Send")+'</button></div>';}
- return '<div class="from">🚚 '+km+' · '+(pf.fee_iqd?money(pf.fee_iqd):t("free"))+'</div>';}
+ return '<div class="from">'+(pf.express?'⚡ ':'')+'🚚 '+km+' · '+(pf.fee_iqd?money(pf.fee_iqd):t("free"))+'</div>';}
+function expressCard(){var on=!!(S.shop&&S.shop.express);
+ return '<div class="panel"><div class="sum"><b>⚡ '+t("p40Offer")+'</b><span class="pill">'+t(on?"p40On":"p40Off")+'</span></div><div class="from">'+t("p40OfferSub")+'</div><button class="btn'+(on?' ghost':'')+'" type="button" data-act="expsw">'+t(on?"p40TurnOff":"p40TurnOn")+'</button></div>';}
 function shopLocCard(){
  var ll=llOf(S.shop.loc_url);
  if(!ll)return '<div class="panel"><div class="msg"><b>📍 '+t("p29ShopLocMiss")+'</b><div class="from">'+t("p29ShopLocSub")+'</div></div><button class="btn" type="button" data-act="sgeo">📍 '+t("p29ShopLocBtn")+'</button></div>';
@@ -2016,6 +2055,7 @@ document.addEventListener("change",function(e){if(e.target.dataset&&e.target.dat
 document.addEventListener("submit",async function(e){
  e.preventDefault();
  if(e.target.id==="rform"){return doRequest();}
+ if(e.target.id==="eform"){return doErrand();}
  if(S.busy)return;
  if(e.target.id==="bform"){return doAddBanner();}
  if(e.target.id==="eform"){return doEditProduct();}
@@ -2049,10 +2089,12 @@ document.addEventListener("submit",async function(e){
   if(!v[2]){$("err").textContent=t("p33CityBad");return;}
   if(v.some(function(x){return !x;})){$("err").textContent=t("fillAll");return;}
   if(!S.geo){var lc=$("geo-card");if(lc){lc.classList.remove("shake");void lc.offsetWidth;lc.classList.add("shake");lc.scrollIntoView({behavior:"smooth",block:"center"});}$("err").textContent=t("locRequired");return;}
+  var xsel=Array.prototype.slice.call(document.querySelectorAll(".xp:checked")).map(function(x){return x.value;});
   S.busy=true;
   var r2=await sb.rpc("place_order",{p_name:v[0],p_phone:v[1],p_city:v[2],p_address:v[3],p_loc:S.geo||null,p_coupon:S.coupon?S.coupon.code:null});
   S.busy=false;
   if(r2.error){render();var er=$("err");if(er)er.textContent=errText(r2.error);return;}
+  S.expSent=[];for(var xi=0;xi<xsel.length;xi++){try{var xr=await sb.rpc("request_express",{p_order:r2.data,p_shop:xsel[xi]});if(!xr.error)S.expSent.push(xsel[xi]);}catch(e7){}}
   var o=await sb.from("orders").select("*,order_items(*)").eq("id",r2.data).single();
   S.order=o.data;S.cart=[];try{await sb.rpc("save_address",{p_name:v[0],p_phone:v[1],p_city:v[2],p_addr:v[3],p_loc:S.geo});}catch(e6){}S.geo=null;S.geoAcc=0;S.coupon=null;try{await loadUser();}catch(e5){}
   await loadPublic();
