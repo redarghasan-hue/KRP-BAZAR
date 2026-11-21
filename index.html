@@ -110,7 +110,14 @@ nav button[aria-current="page"] svg{color:var(--accent)}
 .toast span{background:var(--brand);color:var(--brand-ink);padding:9px 16px;border-radius:99px;font-size:14px}
 @media(prefers-reduced-motion:no-preference){.card,.cat{transition:transform .15s}.card:active,.cat:active{transform:scale(.98)}}
 </style>
-</head>
+<style>
+.lvbox{margin-top:8px;border:1px solid var(--line,#ddd);border-radius:12px;overflow:hidden}
+.lvmap{height:210px;background:#e8eef0}
+.lvinfo{padding:8px 10px}
+.lvinfo b{font-weight:700}
+.lvico{font-size:22px;line-height:1;background:#fff;border-radius:50%;border:2px solid #0a7;padding:3px;box-shadow:0 1px 4px rgba(0,0,0,.3)}
+.lvtrk{margin-top:8px;padding:10px;border-radius:12px;background:var(--soft,rgba(0,150,100,.08))}
+</style></head>
 <body>
 <style>
 nav div{grid-template-columns:repeat(5,1fr)}
@@ -430,6 +437,7 @@ async function loadOrders(){
  try{var rq=await sb.from("product_requests").select("*").eq("user_id",S.user.id).order("id",{ascending:false}).limit(20);S.myReq=rq.error?[]:(rq.data||[]);
   var pl=await sb.from("point_log").select("*").eq("user_id",S.user.id).order("id",{ascending:false}).limit(10);S.plog=pl.error?[]:(pl.data||[]);}catch(e9){S.myReq=[];S.plog=[];}
  await loadPf();
+ await loadTracks();
 }
 function orderTotal(o){return (o.order_items||[]).reduce(function(a,i){return a+i.unit_price_iqd*i.qty;},0)+(o.delivery_fee_iqd||0)-(o.discount_iqd||0);}
 function orderStep(o){var items=o.order_items||[];if(!items.length)return 0;var idx=items.map(function(i){return STATUS.indexOf(i.status);});if(idx.every(function(x){return x===6;}))return 6;idx=idx.filter(function(x){return x!==6;});return Math.min.apply(null,idx);}
@@ -652,6 +660,7 @@ function render(){
  Array.prototype.forEach.call(document.querySelectorAll("#langs button"),function(b){b.setAttribute("aria-pressed",String(b.dataset.l===S.lang));});
  window.scrollTo(0,0);
  if(/^chat-/.test(route()))scrollMsgs();
+ mountLive();
 }
 async function onRoute(){
  if(route()==="account"&&S.user){await loadOrders();try{await refreshShop();await refreshMine();await loadAdmin();}catch(e){}}
@@ -779,7 +788,7 @@ function orderCards(items){
  return groupItems(items).map(function(g){var o=g[0].orders||{};
   return '<div class="panel"><div class="sum"><b dir="ltr">#'+g[0].order_id+(g.some(function(i){return i.status==="new";})?' <span class="pill">'+t("newBadge")+'</span>':'')+'</b><span class="from">'+esc((o.created_at||"").slice(0,10))+'</span></div>'
    +'<div>'+t("customer")+': <b>'+esc(o.name)+'</b></div><div dir="ltr" style="text-align:start">'+esc(o.phone)+'</div>'+contactBtns(o.phone)+(S.shop&&S.shop.id===g[0].shop_id&&o.customer_id?'<button class="btn ghost" type="button" data-act="chatcust" data-id="'+g[0].shop_id+'" data-v="'+o.customer_id+'">💬 '+t("chatCust")+'</button>':'')+'<div>'+esc(o.city)+' · '+esc(o.address)+'</div>'+locBlock(o.location_url)
-   +g.map(function(i){return '<div class="offer"><div>'+num(i.qty)+' × '+esc(i.products?L(i.products,"name"):"")+szTag(i)+(i.shops?' <span class="from">('+esc(i.shops.name)+')</span>':'')+'<small>'+money(i.unit_price_iqd*i.qty)+'</small></div>'+(pfPend(i.order_id,i.shop_id)?'<span class="from">⏳ '+t("p29Pend")+'</span>':stSel(i))+'</div>';}).join("")+etaRow(g)+feeMerch(g)+'<div class="row" style="margin-top:6px"><button class="btn ghost" type="button" data-go="inv-'+g[0].order_id+'">🧾 '+t("p39Inv")+'</button></div></div>';}).join("");}
+   +g.map(function(i){return '<div class="offer"><div>'+num(i.qty)+' × '+esc(i.products?L(i.products,"name"):"")+szTag(i)+(i.shops?' <span class="from">('+esc(i.shops.name)+')</span>':'')+'<small>'+money(i.unit_price_iqd*i.qty)+'</small></div>'+(pfPend(i.order_id,i.shop_id)?'<span class="from">⏳ '+t("p29Pend")+'</span>':stSel(i))+'</div>';}).join("")+etaRow(g)+feeMerch(g)+trkBox(g)+'<div class="row" style="margin-top:6px"><button class="btn ghost" type="button" data-go="inv-'+g[0].order_id+'">🧾 '+t("p39Inv")+'</button></div></div>';}).join("");}
 function mProducts(){
  if(S.edit){var ep=S.mine.filter(function(x){return x.id===S.edit;})[0];if(ep)return editForm(ep);S.edit=null;}
  var h='<form class="panel" id="pform" novalidate><b>'+t("addProduct")+'</b>'
@@ -981,6 +990,8 @@ async function doAct(el){
  if(a==="myord"){S.cartTab="orders";try{await loadOrders();}catch(e8){}go("cart");return;}
  if(a==="img"){S.pimg=S.pimg||{};S.pimg[id]=parseInt(v,10);keepScroll();return;}
  if(a==="pedit"){S.edit=parseInt(id,10);var ep0=S.mine.filter(function(x){return x.id===S.edit;})[0];VV("e");S.vv.e=hasVar(ep0)?{list:ep0.colors.slice(),st:Object.assign({},ep0.size_stock||{})}:{list:[],st:{}};render();return;}
+ if(a==="trkon"){startShare(parseInt(id,10),el.dataset.sid);keepScroll();return;}
+ if(a==="trkoff"){stopShare(true);keepScroll();return;}
  if(a==="expsw"){try{var nx=!S.shop.express;await upd("shops",{express:nx},"id",S.shop.id);S.shop.express=nx;await loadPublic();keepScroll();}catch(e8){toast(errText(e8));}return;}
  if(a==="invprint"){window.print();return;}
  if(a==="mreload"){S.mreq=undefined;keepScroll();return;}
@@ -1687,7 +1698,7 @@ function pkgBlock(o){
    +g.map(function(i){return '<div class="from">'+num(i.qty)+' × '+esc(i.products?L(i.products,"name"):"")+szTag(i)+(i.status==="cancelled"?' · '+t("st")[6]:'')+'</div>';}).join("")
    +feeRow(o,k)+(st<5&&!pfPend(o.id,k)?'<div class="sum"><span class="from">'+t("payOnDel")+'</span><b>'+money(pkgDue(o,k,g))+'</b></div>':'')
    +(tl?'<details><summary class="from">'+t("timeline")+'</summary><div class="tl">'+tl+'</div></details>':'')
-   +(st<5?chatBtn(k):'')+'</div>';});
+   +(st<5?liveBox(o,k,g,st):'')+(st<5?chatBtn(k):'')+'</div>';});
  return h;}
 function markSeen(){
  try{var key="krp_seen_"+(S.user?S.user.id:""),m={};(S.orders||[]).forEach(function(o){m[o.id]=ordSig(o);});localStorage.setItem(key,JSON.stringify(m));}catch(e){}
@@ -1978,6 +1989,84 @@ var T40={
   p40Title:"KRP Express (نزیکەی ١ کاتژمێر)",p40Sub:"ئێکسپرێس بۆ فرۆشگایەک هەڵبژێرە تا داواکارییەکەت لە ماوەی نزیکەی ١ کاتژمێردا بگات. فرۆشیار دوای داواکارییەکەت نرخی گەیاندن دیاری دەکات و تۆ بڕیار دەدەیت قبوڵی بکەیت.",p40Pending:"ئێکسپرێس داواکرا. فرۆشیار نرخی گەیاندنت بۆ دەنێرێت؛ تکایە لە داواکارییەکانتدا قبوڵی بکە یان ڕەتی بکەرەوە.",p40Wait:"چاوەڕێی نرخی ئێکسپرێسی فرۆشیار…",p40Exp1:"داواکاری ئێکسپرێس – نرخی گشتی گەیاندن دیاری بکە",p40Std:"گەیاندنی ئاسایی دەبوو",
   p40Tile:"گەیاندنی بەپەلە و کاری بچووک",p40Intro:"KRP Express بۆ گەیاندنی بەپەلەیە لە ماوەی نزیکەی ١ کاتژمێردا و بۆ کاری بچووک. ئەو فرۆشیارانەی ئێکسپرێس پێشکەش دەکەن بۆ هەر داواکارییەک نرخ دیاری دەکەن و تۆ بڕیار دەدەیت.",p40None:"ئێستا هیچ فرۆشیارێک ئێکسپرێس پێشکەش ناکات.",p40Shops:"فرۆشیارانی ئێکسپرێس",p40Open:"کردنەوەی فرۆشگا",p40ErrT:"کاری بچووک",p40ErrSub:"بە فرۆشیارێکی ئێکسپرێس بڵێ چیت پێویستە. فرۆشیار لە چاتدا وەڵام دەداتەوە و نرخێک دیاری دەکات.",p40Pick:"فرۆشیار",p40ErrWhat:"چیت پێویستە؟",p40ErrPh:"بۆ نموونە: ٢ بوتڵ ئاو و شاژەری مۆبایل بۆ عەنکاوە",p40ErrSend:"ناردن بۆ فرۆشیار"}};
 Object.keys(T40).forEach(function(k){Object.keys(T40[k]).forEach(function(x){T[k][x]=T40[k][x];});});
+
+var T41={
+ en:{p41Share:"Share live location with the customer",p41ShareSub:"The customer sees on a map where you are until the package is delivered. Keep the app open and the screen on.",p41Stop:"Stop sharing",p41On:"Sharing live location…",p41Err:"Could not get your location. Please allow location access.",p41End:"Sharing ended: the package is no longer on its way.",p41None:"The seller has not shared a live location yet.",p41Live:"Live tracking",p41Away:"{d} away",p41Ago:"updated {s} s ago",p41AgoM:"updated {m} min ago",p41Stale:"Signal lost? The last update was a while ago.",p41Maps:"Open in Maps"},
+ ar:{p41Share:"مشاركة الموقع المباشر مع العميل",p41ShareSub:"يرى العميل موقعك على الخريطة حتى تسليم الطلب. أبقِ التطبيق مفتوحاً والشاشة تعمل.",p41Stop:"إيقاف المشاركة",p41On:"جارٍ مشاركة الموقع المباشر…",p41Err:"تعذر تحديد موقعك. يرجى السماح بالوصول إلى الموقع.",p41End:"انتهت المشاركة: الشحنة لم تعد في الطريق.",p41None:"لم يشارك البائع موقعه المباشر بعد.",p41Live:"التتبع المباشر",p41Away:"يبعد {d}",p41Ago:"آخر تحديث قبل {s} ث",p41AgoM:"آخر تحديث قبل {m} د",p41Stale:"انقطعت الإشارة؟ آخر تحديث كان منذ فترة.",p41Maps:"فتح في الخرائط"},
+ ku:{p41Share:"شوێنی زیندوو لەگەڵ کڕیار هاوبەش بکە",p41ShareSub:"کڕیار لەسەر نەخشە دەبینێت لە کوێیت تا پاکەتەکە دەگات. بەرنامەکە کراوە و شاشە ڕووناک بهێڵەرەوە.",p41Stop:"وەستاندنی هاوبەشکردن",p41On:"شوێنی زیندوو هاوبەش دەکرێت…",p41Err:"شوێنەکەت نەدۆزرایەوە. تکایە ڕێگە بدە بە شوێن.",p41End:"هاوبەشکردن کۆتایی هات: پاکەتەکە چیتر لە ڕێگا نییە.",p41None:"فرۆشیار هێشتا شوێنی زیندووی هاوبەش نەکردووە.",p41Live:"شوێنکەوتنی زیندوو",p41Away:"{d} دووره",p41Ago:"نوێکراوەتەوە لە {s} چرکە پێش",p41AgoM:"نوێکراوەتەوە لە {m} خولەک پێش",p41Stale:"سیگناڵ نەماوە؟ دوایین نوێکردنەوە کەمێک پێش ئێستایە.",p41Maps:"کردنەوە لە نەخشە"}
+};
+Object.keys(T41).forEach(function(k){Object.keys(T41[k]).forEach(function(x){T[k][x]=T41[k][x];});});
+/* ---- live tracking ---- */
+var LV={maps:{},lib:null};
+function isShip(st){return st==="handed_to_courier"||st==="on_the_way";}
+function hav(a,b,c,d){var R=6371,r=Math.PI/180,x=(c-a)*r,y=(d-b)*r,q=Math.sin(x/2)*Math.sin(x/2)+Math.cos(a*r)*Math.cos(c*r)*Math.sin(y/2)*Math.sin(y/2);return 2*R*Math.asin(Math.sqrt(q));}
+async function loadTracks(){try{var r=await sb.from("delivery_tracks").select("*");var m={};(r.data||[]).forEach(function(k){m[k.order_id+"|"+k.shop_id]=k;});S.tracks=m;}catch(e){S.tracks=S.tracks||{};}}
+function lvText(tr,cll){var age=Math.max(0,Math.round((Date.now()-new Date(tr.updated_at).getTime())/1000));
+ var a=age<90?t("p41Ago").replace("{s}",num(age)):t("p41AgoM").replace("{m}",num(Math.round(age/60)));
+ var d="";if(cll){var p=cll.split(",");var km=hav(tr.lat,tr.lng,parseFloat(p[0]),parseFloat(p[1]));d=t("p41Away").replace("{d}",km<1?num(Math.round(km*1000))+" m":num(km.toFixed(1))+" km")+" · ";}
+ return '🛵 <b>'+d+'</b>'+a+(age>120?'<div class="late-t">⚠ '+t("p41Stale")+'</div>':'')+' · <a href="https://maps.google.com/?q='+tr.lat+','+tr.lng+'" target="_blank" rel="noopener">'+t("p41Maps")+'</a>';}
+function liveBox(o,k,g,st){
+ if(st!==3&&st!==4)return "";
+ var tr=(S.tracks||{})[o.id+"|"+k];
+ if(!tr)return '<div class="from" style="margin-top:6px">📍 '+t("p41None")+'</div>';
+ var cll=llOf(o.location_url);
+ return '<div class="lvbox"><div class="lvmap" id="lvm-'+o.id+'-'+k+'" data-k="'+o.id+'|'+k+'" data-c="'+(cll||"")+'"></div><div class="from lvinfo" id="lvi-'+o.id+'-'+k+'">'+lvText(tr,cll)+'</div></div>';}
+function loadLeaflet(){
+ if(window.L&&window.L.map)return Promise.resolve(window.L);
+ if(LV.lib)return LV.lib;
+ LV.lib=new Promise(function(res,rej){
+  var l=document.createElement("link");l.rel="stylesheet";l.href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.css";document.head.appendChild(l);
+  var sc=document.createElement("script");sc.src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.js";
+  sc.onload=function(){res(window.L);};sc.onerror=function(){LV.lib=null;rej(new Error("leaflet"));};document.head.appendChild(sc);});
+ return LV.lib;}
+function mountLive(){
+ var els=document.querySelectorAll(".lvmap");if(!els.length)return;
+ loadLeaflet().then(function(L){
+  Array.prototype.forEach.call(document.querySelectorAll(".lvmap"),function(el){
+   if(el._lv||!document.body.contains(el))return;
+   var tr=(S.tracks||{})[el.dataset.k];if(!tr)return;
+   var m=L.map(el,{zoomControl:true,attributionControl:true}).setView([tr.lat,tr.lng],14);
+   L.tileLayer("https://tile.openstreetmap.org/{z}/{x}/{y}.png",{maxZoom:19,attribution:"© OpenStreetMap"}).addTo(m);
+   var cm=L.marker([tr.lat,tr.lng],{icon:L.divIcon({className:"",html:'<div class="lvico">🛵</div>',iconSize:[30,30],iconAnchor:[15,15]})}).addTo(m);
+   var hm=null,pts=[[tr.lat,tr.lng]];
+   if(el.dataset.c){var p=el.dataset.c.split(",").map(parseFloat);hm=L.marker(p,{icon:L.divIcon({className:"",html:'<div class="lvico">🏠</div>',iconSize:[30,30],iconAnchor:[15,15]})}).addTo(m);pts.push(p);}
+   if(pts.length>1)m.fitBounds(pts,{padding:[30,30],maxZoom:16});
+   el._lv={m:m,cm:cm,hm:hm};});
+ }).catch(function(){});}
+function updateLive(){
+ Array.prototype.forEach.call(document.querySelectorAll(".lvmap"),function(el){
+  var tr=(S.tracks||{})[el.dataset.k];if(!tr)return;
+  var id=el.id.slice(4),inf=document.getElementById("lvi-"+id);if(inf)inf.innerHTML=lvText(tr,el.dataset.c);
+  if(el._lv){el._lv.cm.setLatLng([tr.lat,tr.lng]);}});}
+function liveSig(){return (S.orders||[]).map(function(o){return (o.order_items||[]).map(function(i){return i.id+i.status;}).join(",");}).join("|")+"#"+Object.keys(S.tracks||{}).sort().join(",");}
+async function pollLive(){
+ if(document.hidden||!S.user||!S.orders)return;
+ var act=S.orders.some(function(o){return (o.order_items||[]).some(function(i){return isShip(i.status);});});
+ if(!act)return;
+ var b=liveSig();await loadOrders();
+ var ae=document.activeElement,typing=ae&&/^(INPUT|TEXTAREA|SELECT)$/.test(ae.tagName);
+ if(liveSig()!==b&&!typing&&document.querySelector(".pkg"))keepScroll();else updateLive();}
+/* merchant sharing */
+function trkBox(g){
+ var ship=g.some(function(i){return isShip(i.status);});if(!ship)return "";
+ var oid=g[0].order_id,sid=g[0].shop_id,on=S.share&&S.share.o===oid&&S.share.s===sid;
+ return '<div class="lvtrk"><b>🛵 '+t("p41Live")+'</b><div class="from">'+t(on?"p41On":"p41ShareSub")+'</div><button class="btn'+(on?' ghost':'')+'" type="button" data-act="'+(on?'trkoff':'trkon')+'" data-id="'+oid+'" data-sid="'+sid+'" style="margin-top:6px">'+(on?'⏹ '+t("p41Stop"):'📍 '+t("p41Share"))+'</button></div>';}
+async function sendLoc(){var sh=S.share;if(!sh||!sh.pos)return;sh.last=Date.now();
+ try{var r=await sb.rpc("share_location",{p_order:sh.o,p_shop:sh.s,p_lat:sh.pos.latitude,p_lng:sh.pos.longitude,p_acc:sh.pos.accuracy||null});
+  if(r&&r.error)throw r.error;}
+ catch(e){if(/not shipping/.test((e&&e.message)||"")){stopShare(false);toast(t("p41End"));keepScroll();}}}
+async function wakeOn(){try{if(navigator.wakeLock&&S.share)S.share.wl=await navigator.wakeLock.request("screen");}catch(e){}}
+function startShare(o,sid){
+ if(!navigator.geolocation){toast(t("p41Err"));return;}
+ if(S.share)stopShare(true);
+ S.share={o:o,s:sid,pos:null,last:0};
+ S.share.wid=navigator.geolocation.watchPosition(function(p){if(!S.share)return;S.share.pos=p.coords;if(Date.now()-S.share.last>12000)sendLoc();},function(){toast(t("p41Err"));stopShare(false);keepScroll();},{enableHighAccuracy:true,maximumAge:5000,timeout:20000});
+ S.share.timer=setInterval(function(){if(S.share&&S.share.pos&&Date.now()-S.share.last>14000)sendLoc();},15000);
+ wakeOn();}
+function stopShare(call){var sh=S.share;if(!sh)return;S.share=null;
+ try{navigator.geolocation.clearWatch(sh.wid);}catch(e){}clearInterval(sh.timer);try{if(sh.wl)sh.wl.release();}catch(e){}
+ if(call){try{var p=sb.rpc("stop_location",{p_order:sh.o,p_shop:sh.s});if(p&&p.then)p.then(function(){},function(){});}catch(e){}}}
+document.addEventListener("visibilitychange",function(){if(!document.hidden&&S.share)wakeOn();});
 var T34={
  en:{p34T:"Colors & patterns (optional)",p34Hint:"Add the colors or patterns this product comes in. You enter the stock for each one (and each size).",p34Colors:"Colors",p34Patterns:"Patterns",p34Own:"Own option, e.g. Black/White",p34StockHint:"Stock per option:",p34NeedStock:"Enter stock for at least one option.",p34Pick:"Color / pattern",p34Choose:"Please choose color/pattern and size first.",p34Max:"Maximum 30 options."},
  ar:{p34T:"الألوان والنقوش (اختياري)",p34Hint:"أضف الألوان أو النقوش المتوفرة لهذا المنتج. تدخل المخزون لكل خيار (ولكل مقاس).",p34Colors:"الألوان",p34Patterns:"النقوش",p34Own:"خيار خاص، مثل أسود/أبيض",p34StockHint:"المخزون لكل خيار:",p34NeedStock:"أدخل مخزوناً لخيار واحد على الأقل.",p34Pick:"اللون / النقش",p34Choose:"يرجى اختيار اللون/النقش والمقاس أولاً.",p34Max:"الحد الأقصى 30 خياراً."},
@@ -2105,6 +2194,7 @@ $("q").addEventListener("input",function(e){S.q=e.target.value;if(route()==="sea
 window.addEventListener("hashchange",onRoute);
 sb.auth.onAuthStateChange(function(ev){if(ev==="PASSWORD_RECOVERY"){S.recovery=true;setTimeout(function(){loadUser().then(function(){go("account");render();});},0);return;}if(ev==="SIGNED_OUT"){setTimeout(function(){S.geo=null;S.geoAcc=0;S.user=null;S.profile=null;S.cart=[];S.favs=[];S.orders=[];S.shop=null;S.items=[];S.newCnt=0;S.unread=0;S.convs=[];S.chat=null;stopChatPoll();render();},0);}});
 render();
+setInterval(function(){pollLive().catch(function(){});},10000);
 setInterval(beat,60000);document.addEventListener("visibilitychange",beat);setTimeout(beat,4000);
 Promise.all([loadPublic(),loadUser()]).then(onRoute).catch(function(){S.ready=true;S.loadErr=true;render();});
 })();
