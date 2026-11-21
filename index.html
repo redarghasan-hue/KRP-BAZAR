@@ -117,6 +117,18 @@ nav button[aria-current="page"] svg{color:var(--accent)}
 .lvinfo b{font-weight:700}
 .lvico{font-size:22px;line-height:1;background:#fff;border-radius:50%;border:2px solid #0a7;padding:3px;box-shadow:0 1px 4px rgba(0,0,0,.3)}
 .lvtrk{margin-top:8px;padding:10px;border-radius:12px;background:var(--soft,rgba(0,150,100,.08))}
+@keyframes pgin{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:none}}
+@keyframes cdin{from{opacity:0;transform:translateY(8px) scale(.985)}to{opacity:1;transform:none}}
+#main.pgin{animation:pgin .26s cubic-bezier(.2,.7,.2,1)}
+#main.pgin .card,#main.pgin .order,#main.pgin .panel,#main.pgin .cat{animation:cdin .32s cubic-bezier(.2,.7,.2,1) both}
+#main.pgin .card:nth-child(2),#main.pgin .panel:nth-child(2){animation-delay:.04s}
+#main.pgin .card:nth-child(3),#main.pgin .panel:nth-child(3){animation-delay:.08s}
+#main.pgin .card:nth-child(4),#main.pgin .panel:nth-child(4){animation-delay:.12s}
+#main.pgin .card:nth-child(n+5){animation-delay:.16s}
+.card,.btn,.cat{transition:transform .15s ease,box-shadow .15s ease,opacity .15s ease}
+.card:active,.cat:active{transform:scale(.97)}
+.btn:active{transform:scale(.97)}
+@media (prefers-reduced-motion:reduce){#main.pgin,#main.pgin *{animation:none!important}.card,.btn,.cat{transition:none}}
 </style></head>
 <body>
 <style>
@@ -661,6 +673,8 @@ function render(){
  window.scrollTo(0,0);
  if(/^chat-/.test(route()))scrollMsgs();
  mountLive();
+ if(S.ready&&S.lastR!==r){var mn=$("main");mn.classList.remove("pgin");void mn.offsetWidth;mn.classList.add("pgin");}
+ S.lastR=r;
 }
 async function onRoute(){
  if(route()==="account"&&S.user){await loadOrders();try{await refreshShop();await refreshMine();await loadAdmin();}catch(e){}}
