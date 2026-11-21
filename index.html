@@ -187,6 +187,25 @@ nav button.swap svg{animation:navpop .38s cubic-bezier(.2,.8,.3,1.2)}
 .tdots .cur i{box-shadow:0 0 0 0 var(--accent);animation:tpulse 1.6s ease-out infinite}
 @keyframes tpulse{0%{box-shadow:0 0 0 0 color-mix(in srgb,var(--accent) 70%,transparent)}100%{box-shadow:0 0 0 9px transparent}}
 @media (prefers-reduced-motion:reduce){nav button.swap svg,.sk,.tfill,.tcour,.tdots .cur i{animation:none!important}}
+/* ---- account ---- */
+.astats{display:grid;grid-template-columns:repeat(3,1fr);gap:10px}
+.astat{all:unset;box-sizing:border-box;cursor:pointer;background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:12px 6px;display:flex;flex-direction:column;align-items:center;gap:2px;text-align:center}
+.astat b{font-size:21px;font-variant-numeric:tabular-nums}
+.astat span{font-size:12px;color:var(--muted)}
+.amenu{background:var(--surface);border:1px solid var(--line);border-radius:14px;overflow:hidden}
+.amenu button{all:unset;box-sizing:border-box;width:100%;display:flex;align-items:center;gap:12px;padding:12px 14px;cursor:pointer;border-top:1px solid var(--line);color:var(--ink)}
+.amenu button:first-child{border-top:0}
+.amenu button:active{background:color-mix(in srgb,var(--brand) 8%,transparent)}
+.amenu .ami{width:38px;height:38px;border-radius:11px;display:grid;place-items:center;background:color-mix(in srgb,var(--brand) 10%,transparent);flex:none}
+.amenu .ami svg{width:20px;height:20px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+.amenu .amt{flex:1;min-width:0;display:flex;flex-direction:column}
+.amenu .amt small{color:var(--muted);font-size:12px}
+.amenu .chev{color:var(--muted);font-size:20px}
+html[dir=rtl] .amenu .chev{transform:scaleX(-1)}
+.amenu .ndot{background:var(--price);color:#fff;border-radius:99px;font-size:11px;min-width:18px;text-align:center;line-height:18px;padding:0 5px}
+.amenu .danger{color:var(--price)}
+.apage h2{margin:14px 0 6px}
+.dangerbox{border:1px solid var(--price)}
 </style></head>
 <body>
 <style>
@@ -682,20 +701,7 @@ function vAccount(){
  }
  var pr=S.profile||{},role=pr.role||"customer";if(role!=="admin"&&S.shop)role="merchant";
  var staff=(role==="admin"||role==="merchant");
- var h=(pr.blocked?'<div class="msg">'+t("blockedMsg")+'</div>':'')+vProfileCard(pr,role)
-  +'<div class="panel"><button class="btn ghost" type="button" data-go="chats">💬 '+t("chatT")+(S.unread?' ('+num(S.unread)+')':'')+'</button>'
-  +(staff?'<button class="btn" type="button" data-go="ledger">🧾 '+t("p25Ledger")+'</button>':'')
-  +'<button class="btn ghost" type="button" data-go="support">'+t("contactSupport")+'</button><button class="btn ghost" type="button" id="logout">'+t("logout")+'</button></div>';
- if(!staff){
-  h+='<section><h2>'+t("myOrders")+'</h2><div class="panel">';
-  if(!S.orders.length)h+='<div class="from">'+t("noOrders")+'</div>';
-  markSeen();
-  S.orders.forEach(function(o){
-   h+='<div class="order"><div class="sum"><b dir="ltr">#'+o.id+'</b><span class="price">'+money(orderTotal(o))+'</span></div>'+pkgBlock(o)+rateBtns(o)+cancelBtn(o)+'<div class="row" style="margin-top:6px"><button class="btn ghost" type="button" data-go="inv-'+o.id+'">🧾 '+t("p39Inv")+'</button></div></div>';
-  });
-  h+='</div></section>';
- }
- return h+vShop()+vAdmin();
+ return accHub(pr,role,staff)+vShop()+vAdmin();
 }
 /* ---------- Router ---------- */
 function route(){return (location.hash||"#home").slice(1)||"home";}
@@ -727,6 +733,7 @@ function render(){
  else if((m=r.match(/^chat-(\d+)$/))){h=vChat(+m[1]);active="account";}
  else if(r==="terms"||r==="privacy"){h=vLegal(r);active="account";}
  else if(r==="ledger"){h=vLedger();active="account";}
+ else if(/^acc-(edit|orders|settings|security)$/.test(r)){h=vAcc(r);active="account";}
  else if(r==="account"){h=vAccount()+legalLinks();active="account";}
  else{h=vHome();}
  $("main").innerHTML=h;
@@ -749,6 +756,7 @@ function render(){
 }
 async function onRoute(){
  if(route()==="account"&&S.user){await loadOrders();try{await refreshShop();await refreshMine();await loadAdmin();}catch(e){}}
+ if(/^acc-/.test(route())&&S.user){await loadOrders();}
  if(route()==="ledger"&&S.user){try{await refreshShop();await refreshMine();await loadAdmin();}catch(e){}}
  var rr=route(),mm=rr.match(/^(shop|rate)-([0-9a-f-]{36})$/);
  if(rr==="support"&&S.prevR!=="support")S.supImgs=[];S.prevR=rr;
@@ -1077,6 +1085,11 @@ async function doAct(el){
  if(a==="myord"){S.cartTab="orders";try{await loadOrders();}catch(e8){}go("cart");return;}
  if(a==="img"){S.pimg=S.pimg||{};S.pimg[id]=parseInt(v,10);keepScroll();return;}
  if(a==="pedit"){S.edit=parseInt(id,10);var ep0=S.mine.filter(function(x){return x.id===S.edit;})[0];VV("e");S.vv.e=hasVar(ep0)?{list:ep0.colors.slice(),st:Object.assign({},ep0.size_stock||{})}:{list:[],st:{}};render();return;}
+ if(a==="soth"){try{await sb.auth.signOut({scope:"others"});toast(t("p43SesDone"));}catch(e7){toast(t("error"));}return;}
+ if(a==="sogl"){try{await sb.auth.signOut({scope:"global"});}catch(e7){}S.authMsg="";go("home");return;}
+ if(a==="accdel1"){S.delAsk=true;keepScroll();return;}
+ if(a==="accdel0"){S.delAsk=false;keepScroll();return;}
+ if(a==="accdel2"){await doDelAcc();return;}
  if(a==="trkon"){startShare(parseInt(id,10),el.dataset.sid);keepScroll();return;}
  if(a==="trkoff"){stopShare(true);keepScroll();return;}
  if(a==="expsw"){try{var nx=!S.shop.express;await upd("shops",{express:nx},"id",S.shop.id);S.shop.express=nx;await loadPublic();keepScroll();}catch(e8){toast(errText(e8));}return;}
@@ -2175,6 +2188,94 @@ function skelHome(){var c='<div class="skc"><div class="sk" style="aspect-ratio:
 function trk4(st){var stage=st<=1?0:(st===2?1:(st<=4?2:3)),p=Math.round(stage*100/3),L4=t("p42Trk");
  return '<div class="trk" aria-hidden="true"><div class="tline"><span class="tfill" style="--p:'+p+'%"></span><span class="tcour" style="--p:'+p+'%">'+(stage===3?'✅':'🛵')+'</span></div><div class="tdots">'+L4.map(function(l,q){return '<span class="'+(q<=stage?'on':'')+(q===stage?' cur':'')+'"><i></i>'+l+'</span>';}).join("")+'</div></div>';}
 async function loadSales(){try{var r=await sb.rpc("product_sales");S.sales=(r&&!r.error&&Array.isArray(r.data))?r.data:[];}catch(e){S.sales=[];}}
+
+var T43={
+ en:{p43Edit:"Edit profile",p43EditSub:"Name, phone, address",p43Orders:"Orders",p43OrdersSub:"Active, completed, cancelled",p43Msgs:"Messages",p43Sup:"Support",p43Set:"Settings",p43SetSub:"Language and legal",p43Sec:"Security",p43SecSub:"Password, sessions, delete account",p43Act:"Active orders",p43Done:"Completed",p43Canc:"Cancelled",p43NoAct:"No active orders right now.",p43NoAny:"You have no orders yet.",p43Back:"Back to account",p43Em:"Email (cannot be changed here)",p43PwT:"Change password",p43PwCur:"Current password",p43PwNew:"New password",p43PwNew2:"Repeat new password",p43PwMis:"The passwords do not match.",p43PwWrong:"The current password is wrong.",p43SesT:"Sessions",p43SesSub:"Lost your phone or used a shared device? Sign out the other devices.",p43SesOth:"Sign out other devices",p43SesAll:"Sign out everywhere",p43SesDone:"Done.",p43DelT:"Delete account",p43DelSub:"Your name, phone, address, photo, favorites and cart are erased and your login is disabled. This cannot be undone. Finished orders stay anonymously for the sellers' accounting. Not possible while an order is still open.",p43DelBtn:"Delete my account…",p43DelSure:"Are you sure? This cannot be undone.",p43DelYes:"Yes, delete permanently",p43DelNo:"Cancel",p43DelOpen:"You still have open orders. Delete your account after they are delivered or cancelled.",p43DelShop:"Seller accounts must contact support to be deleted.",p43DelOk:"Your account was deleted.",p43Lang:"Language",p43Legal:"Legal"},
+ ar:{p43Edit:"تعديل الملف الشخصي",p43EditSub:"الاسم والهاتف والعنوان",p43Orders:"الطلبات",p43OrdersSub:"النشطة والمكتملة والملغاة",p43Msgs:"الرسائل",p43Sup:"الدعم",p43Set:"الإعدادات",p43SetSub:"اللغة والشروط",p43Sec:"الأمان",p43SecSub:"كلمة المرور والجلسات وحذف الحساب",p43Act:"الطلبات النشطة",p43Done:"المكتملة",p43Canc:"الملغاة",p43NoAct:"لا توجد طلبات نشطة حالياً.",p43NoAny:"ليس لديك طلبات بعد.",p43Back:"العودة إلى الحساب",p43Em:"البريد الإلكتروني (لا يمكن تغييره هنا)",p43PwT:"تغيير كلمة المرور",p43PwCur:"كلمة المرور الحالية",p43PwNew:"كلمة المرور الجديدة",p43PwNew2:"أعد كتابة كلمة المرور الجديدة",p43PwMis:"كلمتا المرور غير متطابقتين.",p43PwWrong:"كلمة المرور الحالية غير صحيحة.",p43SesT:"الجلسات",p43SesSub:"فقدت هاتفك أو استخدمت جهازاً مشتركاً؟ سجّل الخروج من الأجهزة الأخرى.",p43SesOth:"تسجيل الخروج من الأجهزة الأخرى",p43SesAll:"تسجيل الخروج من كل مكان",p43SesDone:"تم.",p43DelT:"حذف الحساب",p43DelSub:"يتم مسح اسمك ورقم هاتفك وعنوانك وصورتك والمفضلة والسلة ويتم تعطيل تسجيل الدخول. لا يمكن التراجع. تبقى الطلبات المنتهية بشكل مجهول لمحاسبة التجار. غير ممكن أثناء وجود طلب مفتوح.",p43DelBtn:"حذف حسابي…",p43DelSure:"هل أنت متأكد؟ لا يمكن التراجع.",p43DelYes:"نعم، احذف نهائياً",p43DelNo:"إلغاء",p43DelOpen:"لديك طلبات مفتوحة. احذف حسابك بعد تسليمها أو إلغائها.",p43DelShop:"حسابات التجار تحتاج للتواصل مع الدعم للحذف.",p43DelOk:"تم حذف حسابك.",p43Lang:"اللغة",p43Legal:"قانوني"},
+ ku:{p43Edit:"دەستکاریکردنی پرۆفایل",p43EditSub:"ناو، تەلەفون، ناونیشان",p43Orders:"داواکارییەکان",p43OrdersSub:"چالاک، تەواوبوو، هەڵوەشاوە",p43Msgs:"نامەکان",p43Sup:"پشتگیری",p43Set:"ڕێکخستنەکان",p43SetSub:"زمان و یاسایی",p43Sec:"ئاسایش",p43SecSub:"پاسۆرد، دانیشتنەکان، سڕینەوەی هەژمار",p43Act:"داواکارییە چالاکەکان",p43Done:"تەواوبوو",p43Canc:"هەڵوەشاوە",p43NoAct:"ئێستا هیچ داواکارییەکی چالاک نییە.",p43NoAny:"هێشتا هیچ داواکارییەکت نییە.",p43Back:"گەڕانەوە بۆ هەژمار",p43Em:"ئیمەیڵ (لێرە ناگۆڕدرێت)",p43PwT:"گۆڕینی پاسۆرد",p43PwCur:"پاسۆردی ئێستا",p43PwNew:"پاسۆردی نوێ",p43PwNew2:"پاسۆردی نوێ دووبارە بکەوە",p43PwMis:"پاسۆردەکان یەک ناگرنەوە.",p43PwWrong:"پاسۆردی ئێستا هەڵەیە.",p43SesT:"دانیشتنەکان",p43SesSub:"مۆبایلەکەت ون بووە یان ئامێرێکی هاوبەشت بەکارهێناوە؟ لە ئامێرەکانی تر دەربچۆ.",p43SesOth:"دەرچوون لە ئامێرەکانی تر",p43SesAll:"دەرچوون لە هەموو شوێنێک",p43SesDone:"تەواو.",p43DelT:"سڕینەوەی هەژمار",p43DelSub:"ناو، تەلەفون، ناونیشان، وێنە، دڵخوازەکان و سەبەتەکەت دەسڕدرێنەوە و چوونەژوورەوە ڕادەگیرێت. ناگەڕێتەوە. داواکارییە تەواوبووەکان بە شێوەی نەناسراو بۆ حیسابی فرۆشیاران دەمێننەوە. کاتێک داواکارییەک کراوەیە نابێت.",p43DelBtn:"هەژمارەکەم بسڕەوە…",p43DelSure:"دڵنیایت؟ ناگەڕێتەوە.",p43DelYes:"بەڵێ، بۆ هەمیشە بسڕەوە",p43DelNo:"هەڵوەشاندنەوە",p43DelOpen:"داواکاری کراوەت هەیە. دوای گەیشتن یان هەڵوەشاندنەوەیان هەژمارەکەت بسڕەوە.",p43DelShop:"هەژماری فرۆشیار بۆ سڕینەوە پەیوەندی بە پشتگیرییەوە بکە.",p43DelOk:"هەژمارەکەت سڕایەوە.",p43Lang:"زمان",p43Legal:"یاسایی"}
+};
+Object.keys(T43).forEach(function(k){Object.keys(T43[k]).forEach(function(x){T[k][x]=T43[k][x];});});
+var AI={edit:'<path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 013 3L7 19l-4 1 1-4z"/>',orders:'<path d="M21 8l-9-5-9 5v8l9 5 9-5z"/><path d="M3 8l9 5 9-5M12 13v8"/>',msg:'<path d="M21 15a2 2 0 01-2 2H8l-5 4V5a2 2 0 012-2h14a2 2 0 012 2z"/>',sup:'<circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="3.5"/><path d="M5.6 5.6l3.9 3.9M14.5 14.5l3.9 3.9M18.4 5.6l-3.9 3.9M9.5 14.5l-3.9 3.9"/>',set:'<path d="M4 6h10M18 6h2M4 12h2M10 12h10M4 18h12M20 18h0"/><circle cx="16" cy="6" r="2"/><circle cx="8" cy="12" r="2"/><circle cx="18" cy="18" r="2"/>',lock:'<rect x="4" y="11" width="16" height="10" rx="2"/><path d="M8 11V7a4 4 0 018 0v4"/>',rec:'<path d="M6 3h12v18l-3-2-3 2-3-2-3 2z"/><path d="M9 8h6M9 12h6"/>',out:'<path d="M9 21H5a2 2 0 01-2-2V5a2 2 0 012-2h4"/><path d="M16 17l5-5-5-5M21 12H9"/>'};
+function mItem(ic,title,sub,go,extra,cls){return '<button type="button" '+(go==="logout"?'id="logout"':'data-go="'+go+'"')+(cls?' class="'+cls+'"':'')+'><span class="ami"><svg viewBox="0 0 24 24" aria-hidden="true">'+AI[ic]+'</svg></span><span class="amt"><b>'+title+'</b>'+(sub?'<small>'+sub+'</small>':'')+'</span>'+(extra||'')+'<span class="chev" aria-hidden="true">›</span></button>';}
+function ordState(o){var it=o.order_items||[];if(!it.length)return "act";if(it.every(function(i){return i.status==="cancelled";}))return "canc";if(it.every(function(i){return i.status==="delivered"||i.status==="cancelled";}))return "done";return "act";}
+function orderBlock(o){return '<div class="order"><div class="sum"><b dir="ltr">#'+o.id+'</b><span class="price">'+money(orderTotal(o))+'</span></div>'+pkgBlock(o)+rateBtns(o)+cancelBtn(o)+'<div class="row" style="margin-top:6px"><button class="btn ghost" type="button" data-go="inv-'+o.id+'">🧾 '+t("p39Inv")+'</button></div></div>';}
+function accHead(pr,role){
+ return '<div class="acard">'+avatarEl(pr,92)+'<div class="aname">'+esc(pr.full_name||S.user.email)+'</div><span class="pill">'+esc(t("roles")[role]||role)+'</span>'
+  +'<div class="avbtns"><label class="btn ghost">'+t(pr.avatar_url?"p25PhotoChange":"p25PhotoAdd")+'<input type="file" accept="image/*" data-cact="avatar"></label>'+(pr.avatar_url?'<button class="btn ghost" type="button" data-act="avdel">'+t("p25PhotoRemove")+'</button>':'')+'</div></div>';}
+function accHub(pr,role,staff){
+ var act=(S.orders||[]).filter(function(o){return ordState(o)==="act";}).length;
+ var h=(pr.blocked?'<div class="msg">'+t("blockedMsg")+'</div>':'')+accHead(pr,role);
+ if(role!=="admin")h+='<div class="astats"><button class="astat" type="button" data-go="acc-orders"><b>'+num(act)+'</b><span>'+t("p43Act")+'</span></button>'
+  +'<button class="astat" type="button" data-go="acc-orders"><b>'+num(pr.points||0)+'</b><span>⭐ '+t("p39Pts")+'</span></button>'
+  +'<button class="astat" type="button" data-go="favorites"><b>'+num((S.favs||[]).length)+'</b><span>'+t("favs")+'</span></button></div>';
+ h+='<div class="amenu">'+mItem("edit",t("p43Edit"),t("p43EditSub"),"acc-edit")
+  +(role!=="admin"?mItem("orders",t("p43Orders"),t("p43OrdersSub"),"acc-orders",act?'<span class="ndot">'+num(act)+'</span>':''):'')
+  +mItem("msg",t("p43Msgs"),"","chats",S.unread?'<span class="ndot">'+num(S.unread)+'</span>':'')
+  +(staff?mItem("rec",t("p25Ledger"),t("p25LedgerSub"),"ledger"):'')
+  +mItem("sup",t("p43Sup"),"","support")
+  +mItem("set",t("p43Set"),t("p43SetSub"),"acc-settings")
+  +mItem("lock",t("p43Sec"),t("p43SecSub"),"acc-security")
+  +mItem("out",t("logout"),"","logout","","danger")+'</div>';
+ return h+ptsPanel(pr);}
+function vAcc(r){
+ if(!S.user)return vAccount();
+ var back='<button class="crumb" type="button" data-go="account">‹ '+t("p43Back")+'</button>',pr=S.profile||{},h='<div class="apage">'+back;
+ if(r==="acc-edit"){
+  h+='<h1>'+t("p43Edit")+'</h1><form class="panel" id="pform" novalidate>'
+   +'<label>'+t("name")+'<input class="f" id="pe-name" autocomplete="name" value="'+esc(pr.full_name||"")+'"></label>'
+   +'<label>'+t("phone")+'<input class="f" id="pe-phone" type="tel" inputmode="tel" dir="ltr" autocomplete="tel" value="'+esc(pr.phone||"")+'"></label>'
+   +cityBox("pe",pr.addr_city)
+   +'<label>'+t("addr")+'<textarea class="f" id="pe-addr" rows="3">'+esc(pr.addr_text||"")+'</textarea></label>'
+   +'<label>'+t("p43Em")+'<input class="f" dir="ltr" value="'+esc(S.user.email||"")+'" disabled></label>'
+   +'<div id="perr" style="color:var(--price);min-height:20px" role="alert"></div><button class="btn" type="submit">'+t("save")+'</button></form>';}
+ else if(r==="acc-orders"){
+  markSeen();var os=S.orders||[],g={act:[],done:[],canc:[]};os.forEach(function(o){g[ordState(o)].push(o);});
+  h+='<h1>'+t("p43Orders")+'</h1>';
+  if(!os.length)h+='<div class="empty"><span>'+t("p43NoAny")+'</span></div>';
+  else{
+   h+='<h2>'+t("p43Act")+' ('+num(g.act.length)+')</h2><div class="panel">'+(g.act.length?g.act.map(orderBlock).join(""):'<div class="from">'+t("p43NoAct")+'</div>')+'</div>';
+   if(g.done.length)h+='<h2>'+t("p43Done")+' ('+num(g.done.length)+')</h2><div class="panel">'+g.done.map(orderBlock).join("")+'</div>';
+   if(g.canc.length)h+='<h2>'+t("p43Canc")+' ('+num(g.canc.length)+')</h2><div class="panel">'+g.canc.map(orderBlock).join("")+'</div>';}}
+ else if(r==="acc-settings"){
+  h+='<h1>'+t("p43Set")+'</h1><div class="panel"><b>'+t("p43Lang")+'</b><div class="lgrow" style="display:flex;gap:8px;flex-wrap:wrap">'
+   +[["ku","کوردی"],["ar","عربي"],["en","English"]].map(function(l){return '<button type="button" class="btn'+(S.lang===l[0]?'':' ghost')+'" data-lang2="'+l[0]+'">'+l[1]+'</button>';}).join("")+'</div></div>'
+   +'<div class="panel"><b>'+t("p43Legal")+'</b>'+legalLinks()+'</div>';}
+ else if(r==="acc-security"){
+  var emailAuth=!!(S.user.app_metadata&&S.user.app_metadata.provider==="email");
+  h+='<h1>'+t("p43Sec")+'</h1><form class="panel" id="pwform" novalidate><b>🔑 '+t("p43PwT")+'</b>'
+   +(emailAuth?'<label>'+t("p43PwCur")+'<input class="f" id="pw-cur" type="password" dir="ltr" autocomplete="current-password"></label>':'')
+   +'<label>'+t("p43PwNew")+'<input class="f" id="pw-n1" type="password" dir="ltr" autocomplete="new-password"><span>'+t("pwHint")+'</span></label>'
+   +'<label>'+t("p43PwNew2")+'<input class="f" id="pw-n2" type="password" dir="ltr" autocomplete="new-password"></label>'
+   +'<div id="pwerr" style="color:var(--price);min-height:20px" role="alert"></div><button class="btn" type="submit">'+t("p43PwT")+'</button></form>'
+   +'<div class="panel"><b>📱 '+t("p43SesT")+'</b><div class="from">'+t("p43SesSub")+'</div><button class="btn ghost" type="button" data-act="soth">'+t("p43SesOth")+'</button><button class="btn ghost" type="button" data-act="sogl">'+t("p43SesAll")+'</button></div>'
+   +'<div class="panel dangerbox"><b>🗑 '+t("p43DelT")+'</b><div class="from">'+t("p43DelSub")+'</div>'
+   +(S.delAsk?'<div class="msg">'+t("p43DelSure")+'</div><div class="row" style="gap:8px;flex-wrap:wrap"><button class="btn" type="button" data-act="accdel2" style="background:var(--price);border-color:var(--price);color:#fff">'+t("p43DelYes")+'</button><button class="btn ghost" type="button" data-act="accdel0">'+t("p43DelNo")+'</button></div>'
+     :'<button class="btn ghost" type="button" data-act="accdel1" style="color:var(--price)">'+t("p43DelBtn")+'</button>')+'</div>';}
+ return h+'</div>';}
+async function doProfileSave(){
+ var nm=$("pe-name").value.trim(),ph=$("pe-phone").value.trim(),ct=cityVal("pe"),ad=$("pe-addr").value.trim(),er=$("perr");
+ if(!ct){er.textContent=t("p33CityBad");return;}
+ if(!nm||!ad){er.textContent=t("fillAll");return;}
+ if(ph.replace(/\D/g,"").length<8){er.textContent=t("phoneBad");return;}
+ S.busy=true;var r=await sb.rpc("save_address",{p_name:nm,p_phone:ph,p_city:ct,p_addr:ad});S.busy=false;
+ if(r.error){er.textContent=errText(r.error);return;}
+ await loadUser();toast(t("saved"));go("account");}
+async function doPw(){
+ var er=$("pwerr"),c=$("pw-cur"),n1=$("pw-n1").value,n2=$("pw-n2").value;
+ if(n1.length<6){er.textContent=t("pwHint");return;}
+ if(n1!==n2){er.textContent=t("p43PwMis");return;}
+ S.busy=true;
+ try{
+  if(c){var v=await sb.auth.signInWithPassword({email:S.user.email,password:c.value});if(v.error){S.busy=false;er.textContent=t("p43PwWrong");return;}}
+  var r=await sb.auth.updateUser({password:n1});S.busy=false;
+  if(r.error){er.textContent=r.error.message;return;}
+  toast(t("passChanged"));$("pw-n1").value="";$("pw-n2").value="";if(c)c.value="";
+ }catch(e){S.busy=false;er.textContent=t("error");}}
+async function doDelAcc(){
+ var r=await sb.rpc("delete_my_account");
+ if(r.error){var m=r.error.message||"";S.delAsk=false;toast(/open orders/.test(m)?t("p43DelOpen"):(/shop owner|admin/.test(m)?t("p43DelShop"):t("error")));keepScroll();return;}
+ S.delAsk=false;try{await sb.auth.signOut({scope:"global"});}catch(e){}
+ toast(t("p43DelOk"));go("home");}
 var T34={
  en:{p34T:"Colors & patterns (optional)",p34Hint:"Add the colors or patterns this product comes in. You enter the stock for each one (and each size).",p34Colors:"Colors",p34Patterns:"Patterns",p34Own:"Own option, e.g. Black/White",p34StockHint:"Stock per option:",p34NeedStock:"Enter stock for at least one option.",p34Pick:"Color / pattern",p34Choose:"Please choose color/pattern and size first.",p34Max:"Maximum 30 options."},
  ar:{p34T:"الألوان والنقوش (اختياري)",p34Hint:"أضف الألوان أو النقوش المتوفرة لهذا المنتج. تدخل المخزون لكل خيار (ولكل مقاس).",p34Colors:"الألوان",p34Patterns:"النقوش",p34Own:"خيار خاص، مثل أسود/أبيض",p34StockHint:"المخزون لكل خيار:",p34NeedStock:"أدخل مخزوناً لخيار واحد على الأقل.",p34Pick:"اللون / النقش",p34Choose:"يرجى اختيار اللون/النقش والمقاس أولاً.",p34Max:"الحد الأقصى 30 خياراً."},
@@ -2235,7 +2336,7 @@ function catPicker(id,sel,list){
   +groups.map(function(g){return (g.h?'<h4>'+esc(g.h)+'</h4>':'')+'<div class="cgrid">'+g.items.map(function(c){var on=c.id===sel;return '<button type="button" class="ctile'+(on?' on':'')+'" data-act="catpick" data-id="'+id+'" data-v="'+esc(c.id)+'" aria-pressed="'+on+'">'+cicon(c)+'<span>'+esc(L(c,"name"))+'</span></button>';}).join("")+'</div>';}).join("")+'</div>';}
 /* ---------- Events ---------- */
 document.addEventListener("click",function(e){
- var el=e.target.closest("[data-act],[data-go],[data-p],[data-fav],[data-add],[data-q],[data-auth],#logo,#logout,#retry,#langs button");if(!el)return;
+ var el=e.target.closest("[data-act],[data-go],[data-p],[data-fav],[data-lang2],[data-add],[data-q],[data-auth],#logo,#logout,#retry,#langs button");if(!el)return;
  if(el.dataset.act){doAct(el);return;}
  if(el.id==="logo"){S.q="";$("q").value="";go("home");return;}
  if(el.id==="retry"){S.ready=false;render();loadPublic().then(render);return;}
@@ -2244,6 +2345,7 @@ document.addEventListener("click",function(e){
  if(el.dataset.auth){S.authMode=el.dataset.auth;S.authErr="";S.authMsg="";render();return;}
  if(el.dataset.go){if(/^cat-/.test(el.dataset.go)&&el.classList.contains("cat")){el.classList.add("tap");setTimeout(function(){go(el.dataset.go);},130);return;}go(el.dataset.go);return;}
  if(el.dataset.p){var cd=el.closest(".card");if(cd&&!window.matchMedia("(prefers-reduced-motion:reduce)").matches){cd.classList.add("zoomout");setTimeout(function(){go("p-"+el.dataset.p);},150);return;}go("p-"+el.dataset.p);return;}
+ if(el.dataset.lang2){S.lang=el.dataset.lang2;saveLang();render();return;}
  if(el.dataset.fav){toggleFav(+el.dataset.fav);return;}
  if(el.dataset.add){addToCart(+el.dataset.add);return;}
  if(el.dataset.q){changeQty(+el.dataset.q,el.dataset.s||"",+el.dataset.d);return;}
@@ -2262,6 +2364,8 @@ document.addEventListener("submit",async function(e){
  if(e.target.id==="recov"){return doRecov();}
  if(e.target.id==="rateform"){return doRate();}
  if(e.target.id==="cmpl"){return doComplete();}
+ if(e.target.id==="pform"){return doProfileSave();}
+ if(e.target.id==="pwform"){return doPw();}
  if(e.target.id==="supform"){return doSupport();}
  if(e.target.id==="shopreg"){return doShopReg();}
  if(e.target.id==="pform"){return doAddProduct();}
