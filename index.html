@@ -257,6 +257,10 @@ html[dir=rtl] .amenu .chev{transform:scaleX(-1)}
 @media (prefers-color-scheme:dark){:root:not([data-theme="light"]) .cico{background:linear-gradient(145deg,hsl(var(--h) 35% 24%),hsl(var(--h) 38% 18%));color:hsl(var(--h) 85% 76%);box-shadow:none}}
 :root[data-theme="dark"] .cico{background:linear-gradient(145deg,hsl(var(--h) 35% 24%),hsl(var(--h) 38% 18%));color:hsl(var(--h) 85% 76%);box-shadow:none}
 nav{inset-inline:0!important;max-width:none!important;margin:0!important;bottom:0!important;border-radius:0!important;border:0!important;border-top:1px solid var(--line)!important;background:var(--surface)!important;-webkit-backdrop-filter:none!important;backdrop-filter:none!important;box-shadow:0 -4px 18px rgba(0,0,0,.08)!important;padding:6px max(8px,env(safe-area-inset-right,0px)) calc(6px + env(safe-area-inset-bottom,0px)) max(8px,env(safe-area-inset-left,0px))!important}
+.cats.big{align-content:start;align-items:stretch;grid-auto-rows:auto;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px}
+.cats.big .cat{padding:24px 10px 20px;gap:14px;border-radius:22px;font-size:16px;font-weight:600;box-shadow:0 2px 10px rgba(0,0,0,.06)}
+.cats.big .cico{width:84px;height:84px;border-radius:26px}
+.cats.big .cico svg{width:46px;height:46px}
 </style></head>
 <body>
 <style>
@@ -618,7 +622,7 @@ function listView(title,list){
  var h=sortBar(title,list.length)+filterPanel();
  return h+(list.length?'<div class="grid">'+sorted(list).map(card).join("")+'</div>':'<div class="empty">'+t("none")+'</div>');
 }
-function catGrid(){return '<div class="cats">'+S.cats.filter(function(c){return !c.parent_id;}).map(catTile).join("")+'</div>';}
+function catGrid(big){return '<div class="cats'+(big?' big':'')+'">'+S.cats.filter(function(c){return !c.parent_id;}).map(catTile).join("")+'</div>';}
 function allProducts(){
  if(!S.prods.length)return '<h2>'+t("allP")+'</h2><div class="empty">'+t("noProducts")+'</div>';
  var list=sorted(applyFilters(S.prods)),n=S.homeN||24,h=sortBar(t("allP"),list.length)+filterPanel();
@@ -628,7 +632,6 @@ function vHome(){
  var deals=S.prods.filter(function(p){return discP(p)>0;}).sort(function(a,b){return discP(b)-discP(a);}).slice(0,12),
      news=S.prods.slice(0,10);
  return bannerHtml()
-  +'<section><h2>'+t("cats")+'</h2>'+catGrid()+'</section>'
   +hrow(t("p42Pop"),popList(),false)+hrow('🔥 '+t("p42Deals"),deals,false)+hrow('✨ '+t("p42New"),news,false)
   +expTile()+featSection()+'<section>'+allProducts()+'</section>'+reqCta();
 }
@@ -766,7 +769,7 @@ function render(){
  else if(needsProfile()&&r!=="terms"&&r!=="privacy"){h=vComplete();active="account";}
  else if(S.loadErr&&r!=="account"){h='<div class="empty"><span>'+t("error")+'</span><button class="btn" type="button" id="retry">↻</button></div>';}
  else if(r==="home"){h=vHome();}
- else if(r==="categories"){h='<h1>'+t("cats")+'</h1>'+catGrid();active="cats";}
+ else if(r==="categories"){h='<h1>'+t("cats")+'</h1>'+catGrid(true);active="cats";}
  else if(r==="all"){h=listView(t("all"),S.prods);active="cats";}
  else if(r==="search"){var q=S.q.trim().toLowerCase();var l=S.prods.filter(function(p){return !q||matchQ(p,q);});h=(q?"":histPanel())+listView(t("results"),l)+reqCta();active="cats";}
  else if((m=r.match(/^cat-([A-Za-z0-9]+)$/))&&cat(m[1])){h=vCat(m[1]);active="cats";}
