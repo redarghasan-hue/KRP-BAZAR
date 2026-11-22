@@ -261,6 +261,21 @@ nav{inset-inline:0!important;max-width:none!important;margin:0!important;bottom:
 .cats.big .cat{padding:24px 10px 20px;gap:14px;border-radius:22px;font-size:16px;font-weight:600;box-shadow:0 2px 10px rgba(0,0,0,.06)}
 .cats.big .cico{width:84px;height:84px;border-radius:26px}
 .cats.big .cico svg{width:46px;height:46px}
+#main:has(.ali){animation:none!important;gap:0}
+#main:has(.ali) .ali,#main:has(.ali) .ali *{animation:none!important}
+.ali{display:flex;align-items:flex-start;gap:0;margin:-16px calc(-1*max(16px,env(safe-area-inset-left,0px))) 0;min-height:60vh}
+.ali-side{position:sticky;top:var(--hh,116px);flex:0 0 96px;width:96px;height:calc(100dvh - var(--hh,116px) - 76px - env(safe-area-inset-bottom,0px));overflow-y:auto;background:var(--bg);border-inline-end:1px solid var(--line);display:flex;flex-direction:column;position:sticky;padding:0;margin:0;border-top:0;inset:auto;z-index:1;-webkit-overflow-scrolling:touch}
+.ali-side{inset-inline:auto!important;bottom:auto!important;box-shadow:none!important;background:var(--bg)!important;border-top:0!important;padding:0!important}
+.ali-i{background:none;border:0;border-inline-start:3px solid transparent;text-align:start;padding:16px 8px;font-size:13px;line-height:1.35;color:var(--muted);cursor:pointer;word-break:break-word}
+.ali-i.on{background:var(--surface);color:var(--ink);font-weight:700;border-inline-start-color:var(--accent)}
+.ali-main{flex:1;min-width:0;padding:12px 12px 24px;background:var(--surface);min-height:60vh}
+.ali-h{display:flex;justify-content:space-between;align-items:center;gap:8px;margin-bottom:12px}
+.ali-h b{font-size:16px}.ali-h button{background:none;border:0;color:var(--muted);font-size:13px;cursor:pointer}
+.ali-sub{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px 6px;margin-bottom:18px}
+.ali-k{background:none;border:0;display:flex;flex-direction:column;align-items:center;gap:6px;font-size:12px;color:var(--ink);cursor:pointer;padding:0;text-align:center}
+.ali-k .cico{width:56px;height:56px;border-radius:50%}
+.ali-k .cico svg{width:28px;height:28px}
+.ali-main .grid{gap:10px}
 </style></head>
 <body>
 <style>
@@ -622,6 +637,16 @@ function listView(title,list){
  var h=sortBar(title,list.length)+filterPanel();
  return h+(list.length?'<div class="grid">'+sorted(list).map(card).join("")+'</div>':'<div class="empty">'+t("none")+'</div>');
 }
+function aliView(){
+ var tops=S.cats.filter(function(c){return !c.parent_id;});
+ if(!tops.length)return '<h1>'+t("cats")+'</h1>';
+ var sel=cat(S.catSel);if(!sel||sel.parent_id)sel=tops[0];
+ var kids=S.cats.filter(function(x){return x.parent_id===sel.id;}),ids=descIds(sel.id);
+ var prods=sorted(S.prods.filter(function(p){return ids.indexOf(p.category_id)>-1;}));
+ var side=tops.map(function(c){return '<button type="button" class="ali-i'+(c.id===sel.id?' on':'')+'" data-act="catsel" data-v="'+esc(c.id)+'">'+esc(L(c,"name"))+'</button>';}).join("");
+ var sub=kids.length?'<div class="ali-sub">'+kids.map(function(k){return '<button type="button" class="ali-k" data-go="cat-'+esc(k.id)+'">'+cicon(k)+'<span>'+esc(L(k,"name"))+'</span></button>';}).join("")+'</div>':'';
+ var more=prods.length>40?'<button class="btn ghost" type="button" data-go="cat-'+esc(sel.id)+'">'+t("p42All")+' ('+num(prods.length)+')</button>':'';
+ return '<div class="ali"><div class="ali-side" role="tablist" aria-label="'+t("cats")+'">'+side+'</div><section class="ali-main"><div class="ali-h"><b>'+esc(L(sel,"name"))+'</b><button type="button" data-go="cat-'+esc(sel.id)+'">'+t("p42All")+' ›</button></div>'+sub+(prods.length?'<div class="grid">'+prods.slice(0,40).map(card).join("")+'</div>'+more:'<div class="from" style="padding:24px 0;text-align:center">'+t("noItems")+'</div>')+'</section></div>';}
 function catGrid(big){return '<div class="cats'+(big?' big':'')+'">'+S.cats.filter(function(c){return !c.parent_id;}).map(catTile).join("")+'</div>';}
 function allProducts(){
  if(!S.prods.length)return '<h2>'+t("allP")+'</h2><div class="empty">'+t("noProducts")+'</div>';
@@ -769,7 +794,7 @@ function render(){
  else if(needsProfile()&&r!=="terms"&&r!=="privacy"){h=vComplete();active="account";}
  else if(S.loadErr&&r!=="account"){h='<div class="empty"><span>'+t("error")+'</span><button class="btn" type="button" id="retry">↻</button></div>';}
  else if(r==="home"){h=vHome();}
- else if(r==="categories"){h='<h1>'+t("cats")+'</h1>'+catGrid(true);active="cats";}
+ else if(r==="categories"){h=aliView();active="cats";}
  else if(r==="all"){h=listView(t("all"),S.prods);active="cats";}
  else if(r==="search"){var q=S.q.trim().toLowerCase();var l=S.prods.filter(function(p){return !q||matchQ(p,q);});h=(q?"":histPanel())+listView(t("results"),l)+reqCta();active="cats";}
  else if((m=r.match(/^cat-([A-Za-z0-9]+)$/))&&cat(m[1])){h=vCat(m[1]);active="cats";}
@@ -805,6 +830,7 @@ function render(){
   Array.prototype.forEach.call(document.querySelectorAll("#main .card"),function(c,i){c.style.animationDelay=Math.min(i,10)*55+"ms";});
   mn.classList.toggle("pzoom",/^p-/.test(r));}
  if(S.ready)S.lastR=r;
+ try{var hd=document.querySelector("header");if(hd)document.documentElement.style.setProperty("--hh",hd.offsetHeight+"px");}catch(e){}
  var fx=S.fx;S.fx=null;
  if(fx){
   if(fx.fav){var fb=document.querySelector('.fav[data-fav="'+fx.fav+'"]');if(fb){fb.classList.add("pop");}}
@@ -1115,6 +1141,7 @@ async function doAddProduct(){
 async function doAct(el){
  var a=el.dataset.act,id=el.dataset.id,v=el.dataset.v;
  if(a==="tab"){S.tab=v;keepScroll();return;}
+ if(a==="catsel"){S.catSel=v;render();window.scrollTo(0,0);return;}
  if(a==="catpick"){var ci=$(id);if(ci)ci.value=v;document.querySelectorAll('.cpick[data-for="'+id+'"] .ctile').forEach(function(b){var on=b.dataset.v===v;b.classList.toggle("on",on);b.setAttribute("aria-pressed",on?"true":"false");});resizeBox(id==="p-cat"?"p":"e",v);return;}
  if(a==="invnew"){var ir=await sb.rpc("create_shop_invite",{p_province:$("inv-prov").value,p_note:$("inv-note").value.trim()});if(ir.error){toast(errText(ir.error));return;}await loadAdmin();toast(ir.data);keepScroll();return;}
  if(a==="usrefresh"){await loadUserStats();keepScroll();return;}
@@ -2562,7 +2589,7 @@ function histPanel(){var a=histGet();if(!a.length)return "";
 var histT=null;
 
 var ICONS2={
- kid:'<circle cx="12" cy="8" r="4"/><path d="M9.5 7.6h.01M14.5 7.6h.01"/><path d="M10.2 9.6a2.6 2.6 0 0 0 3.6 0"/><path d="M6 21v-2a4 4 0 0 1 4-4h4a4 4 0 0 1 4 4v2"/><path d="M8.5 4.2 7 2.5M15.5 4.2 17 2.5"/>',
+ kid:'<circle cx="12" cy="9" r="5.5"/><path d="M9.6 8.6h.01M14.4 8.6h.01"/><path d="M10 11.2a2.8 2.8 0 0 0 4 0"/><path d="M11 3.6c.3-1.2 1.7-1.6 2.6-.9"/><path d="M5 21c.6-3 3.3-4.6 7-4.6s6.4 1.6 7 4.6"/>',
  clothes:'<path d="M20.4 3.5 16 2a4 4 0 0 1-8 0L3.6 3.5a2 2 0 0 0-1.3 2.2l.6 3.5a1 1 0 0 0 1 .8H6v10a2 2 0 0 0 2 2h8a2 2 0 0 0 2-2V10h2.2a1 1 0 0 0 1-.8l.6-3.5a2 2 0 0 0-1.4-2.2z"/>',
  shoes:'<path d="M2 17h20v2a1 1 0 0 1-1 1H3a1 1 0 0 1-1-1z"/><path d="M3 17V9l4 1.2L10 7l3 3 4 1c2.2.6 4 2 4 4.5V17"/><path d="M10 7v3M13 10v2"/>',
  pants:'<path d="M8 3h8l2 18h-4.5L12 12l-1.5 9H6z"/><path d="M8 3 6 21M9 7h6"/>',
