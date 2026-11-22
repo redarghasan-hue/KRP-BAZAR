@@ -217,6 +217,31 @@ html[dir=rtl] .amenu .chev{transform:scaleX(-1)}
 .ofc button{flex:none;border:1px solid var(--line);background:var(--surface);border-radius:99px;padding:7px 12px;font-weight:500;white-space:nowrap}
 .ofc button[aria-pressed="true"]{background:var(--brand);color:var(--brand-ink);border-color:var(--brand)}
 .dgrid{display:flex;flex-wrap:wrap;gap:6px;margin-top:8px}
+/* ---- admin ---- */
+.kpis{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}
+.kpi{background:var(--bg);border:1px solid var(--line);border-radius:18px;padding:14px 16px;display:flex;flex-direction:column;gap:2px;min-height:112px}
+.kpi span{color:var(--muted);font-size:13px}
+.kpi b{font-size:24px;font-variant-numeric:tabular-nums;margin-top:6px}
+.kpi small{color:var(--muted);margin-top:auto}
+.tsk{all:unset;box-sizing:border-box;width:100%;display:flex;align-items:center;gap:12px;padding:9px 0;cursor:pointer;border-top:1px solid var(--line)}
+.tsk:first-of-type{border-top:0}
+.tsk i{font-style:normal;min-width:34px;height:34px;border-radius:99px;display:grid;place-items:center;font-weight:700;background:#fde9dc;color:#9a4a12;padding:0 8px;box-sizing:border-box}
+.tsk i.red{background:#fde2e0;color:#8a1a12}
+.tsk i.blue{background:#e1edfb;color:#1a4f8a}
+.tsk span{flex:1}
+.chartw{width:100%;height:auto;display:block}
+.leg{display:flex;gap:14px;font-size:12px;color:var(--muted);margin-top:4px}
+.leg i{display:inline-block;width:14px;height:3px;border-radius:3px;vertical-align:middle;margin-inline-end:5px}
+.best{display:flex;align-items:center;gap:14px}
+.best img,.best .ph0{width:84px;height:84px;border-radius:14px;object-fit:cover;background:var(--line);flex:none}
+.best b{font-size:22px}
+.rkw{overflow-x:auto}
+.rk{display:grid;grid-template-columns:minmax(120px,1.6fr) 1.1fr .7fr .7fr .7fr .6fr;gap:8px;min-width:520px;align-items:center;padding:9px 0;border-top:1px solid var(--line);font-size:14px}
+.rk.h{border-top:0;color:var(--muted);font-size:12px}
+.rk button{all:unset;cursor:pointer;font-weight:600;text-decoration:underline}
+.linkb{all:unset;cursor:pointer;font-weight:700;text-decoration:underline}
+.annb{background:#fff3cd;color:#5b4700;border:1px solid #e0b100;border-radius:12px;padding:10px 14px;margin-bottom:10px;font-weight:500}
+.tl{font-size:12.5px;color:var(--muted);margin:4px 0}
 </style></head>
 <body>
 <style>
@@ -511,6 +536,7 @@ async function loadPublic(){
   var b=await sb.from("products").select("*,shops(id,name,logo_url,express)").eq("active",true).order("id",{ascending:false});
   if(a.error||b.error)throw (a.error||b.error);
   S.cats=a.data.filter(function(c){return c.active!==false;});S.prods=b.data.filter(function(p){return !!cat(p.category_id);});S.loadErr=false;
+  try{var sg=await sb.from("settings").select("*").in("key",["announcement","maintenance"]);S.ann="";S.maint="";(sg.data||[]).forEach(function(x){if(x.key==="announcement")S.ann=x.value||"";if(x.key==="maintenance")S.maint=x.value||"";});}catch(e3){}
   try{var rv=await sb.from("shop_reviews").select("*").order("id",{ascending:false}).limit(2000);S.reviews=rv.error?[]:(rv.data||[]);}catch(e2){S.reviews=[];}
   try{var bn0=await sb.from("banners").select("*").order("id",{ascending:false});S.banners=bn0.error?[]:(bn0.data||[]);}catch(e3){S.banners=[];}
   await loadSales();
@@ -748,6 +774,8 @@ function render(){
  else if(/^acc-(edit|orders|settings|security)$/.test(r)){h=vAcc(r);active="account";}
  else if(r==="account"){h=vAccount()+legalLinks();active="account";}
  else{h=vHome();}
+ if(S.maint==="1"&&!(S.profile&&S.profile.role==="admin")&&r!=="account")h=maintPanel();
+ h=annBar()+h;
  $("main").innerHTML=h;
  S.active=active;drawNav();
  Array.prototype.forEach.call(document.querySelectorAll("#langs button"),function(b){b.setAttribute("aria-pressed",String(b.dataset.l===S.lang));});
@@ -879,6 +907,8 @@ async function loadAdmin(){
  var rqs=await sb.from("product_requests").select("*").order("id",{ascending:false}).limit(200);S.adm.reqs=rqs.error?[]:(rqs.data||[]);
  var inv=await sb.from("shop_invites").select("*").order("created_at",{ascending:false});S.adm.invites=inv.error?[]:(inv.data||[]);
  var sc2=await sb.from("shop_contacts").select("*");S.adm.sphone={};(sc2.data||[]).forEach(function(x){S.adm.sphone[x.shop_id]=x.phone;});
+ var sg2=await sb.from("settings").select("*").in("key",["announcement","maintenance","banned_words"]);S.adm.set={};(sg2.data||[]).forEach(function(x){S.adm.set[x.key]=x.value;});
+ await loadOv();
  await loadUserStats();await loadPf();}
 function groupItems(items){var g={},ord=[];items.forEach(function(i){var k=i.order_id;if(!g[k]){g[k]=[];ord.push(k);}g[k].push(i);});return ord.map(function(k){return g[k];});}
 function stSel(it){
@@ -923,6 +953,7 @@ function vShop(){
  var sh=S.shop,h='<section><h2>'+t("myShop")+': '+esc(sh.name)+' <span class="pill">'+esc(sLabel(sh.status))+'</span></h2>';
  if(sh.status==="pending")return h+'<div class="msg">'+t("shopPending")+'</div></section>';
  if(sh.status==="suspended")return h+'<div class="msg">'+t("shopSuspended")+'</div></section>';
+ if(sh.status==="paused")return h+'<div class="msg">'+t("p45PausedMsg")+'</div></section>';
  h+='<div class="row">'+logoImg(sh,48)+'<label style="flex:1">'+t("changeLogo")+'<input class="f" type="file" accept="image/*" data-cact="logo"></label></div>';
  h+=shopLocCard();h+=expressCard();h+='<div class="panel"><b>'+t("shopInfo")+'</b><label>'+t("shopPhone")+'<input class="f" id="si-phone" type="tel" inputmode="tel" dir="ltr" value="'+esc(S.shopPhone||"")+'"></label><label>'+t("shopAddr")+'<textarea class="f" id="si-addr" rows="2">'+esc(sh.address||"")+'</textarea></label><label>'+t("leadL")+'<input class="f" id="si-lead" type="number" inputmode="numeric" min="0" max="30" dir="ltr" value="'+esc(String(sh.lead_days==null?2:sh.lead_days))+'"></label><button class="btn" type="button" data-act="shinfo">'+t("save")+'</button></div>';
  h+=dashBox()+tabs([["products","products"],["orders","shopOrders"],["today","p44Today"],["earn","earnings"],["req","p39Req"]],S.tab,"tab");
@@ -1011,22 +1042,23 @@ function mReqs(){
 function vAdmin(){
  if(!S.user||!S.profile||S.profile.role!=="admin"||!S.adm)return "";
  var a=S.adm,h='<section><h2>'+t("admin")+'</h2>'+tabs([["stats","statsT"],["shops","shopsT"],["aprod","products"],["aord","shopOrders"],["cust","customersT"],["settle","settleT"],["rev","reviewsT"],["cpn","couponsT"],["comp","complaintsT"],["req","p39Req"],["banners","bannersT"],["set","settingsT"]],S.atab,"atab");
- if(S.atab==="shops"){
+ if(S.atab==="shops"&&S.ashop){h+=admShop(S.ashop);}
+ else if(S.atab==="shops"){
   var CM=compMap();
   h+='<div class="panel"><b>'+t("p33InvT")+'</b><div class="row" style="flex-wrap:wrap"><select class="f" id="inv-prov" style="flex:1">'+PROV.filter(function(x){return x[0]!=="Erbil";}).map(function(x){return '<option value="'+x[0]+'">'+esc(x[1][S.lang]||x[1].en)+'</option>';}).join("")+'</select><input class="f" id="inv-note" style="flex:2" placeholder="'+esc(t("p33InvNote"))+'"></div><button class="btn" type="button" data-act="invnew">'+t("p33InvNew")+'</button>'
    +(a.invites||[]).slice(0,30).map(function(x){return '<div class="from"><b dir="ltr">'+esc(x.code)+'</b> · '+esc(x.province)+(x.note?' · '+esc(x.note):'')+' · '+(x.used_by?t("p33Used"):t("p33Unused"))+'</div>';}).join("")+'</div>';
   h+='<div class="panel">'+(a.shops.length?"":'<div class="from">'+t("noItems")+'</div>')+a.shops.map(function(s){var ow=s.profiles||{};
-   return '<div class="order"><div class="sum"><b>'+esc(s.name)+'</b><span class="pill">'+esc(sLabel(s.status))+'</span></div><div class="from">'+esc(ow.full_name||"")+' · <span dir="ltr">'+esc(ow.phone||"")+'</span></div><div class="from">'+(s.city||s.address?'📍 '+esc((s.city?s.city+' · ':'')+(s.address||'')):'')+' <span dir="ltr">'+esc((a.sphone||{})[s.id]||"")+'</span></div>'+(CM.by[s.id]?'<div class="from">'+t("complaintsT")+': '+num(CM.by[s.id].n)+' ('+t("openL")+': '+num(CM.by[s.id].open)+')</div>':'')
+   return '<div class="order"><div class="sum"><button type="button" class="linkb" data-act="ashop" data-id="'+s.id+'">'+esc(s.name)+'</button><span class="pill">'+esc(sLabel(s.status))+'</span></div><div class="from">'+esc(ow.full_name||"")+' · <span dir="ltr">'+esc(ow.phone||"")+'</span></div><div class="from">'+(s.city||s.address?'📍 '+esc((s.city?s.city+' · ':'')+(s.address||'')):'')+' <span dir="ltr">'+esc((a.sphone||{})[s.id]||"")+'</span></div>'+(CM.by[s.id]?'<div class="from">'+t("complaintsT")+': '+num(CM.by[s.id].n)+' ('+t("openL")+': '+num(CM.by[s.id].open)+')</div>':'')
 
     +'<div class="row">'+(s.status!=="approved"?'<button class="btn" type="button" data-act="shst" data-id="'+s.id+'" data-v="approved">'+t("approve")+'</button>':'')+(s.status!=="suspended"?'<button class="btn ghost" type="button" data-act="shst" data-id="'+s.id+'" data-v="suspended">'+t("suspend")+'</button>':'')+'<button class="btn ghost" type="button" data-act="chatshop2" data-id="'+s.id+'">💬 '+t("chatShopBtn")+'</button></div></div>';}).join("")+'</div>';
  }else if(S.atab==="aprod"){
-  h+='<div class="panel">'+a.prods.map(function(p){return '<div class="row">'+pic(p,"thumb")+'<div class="info"><div style="font-weight:500">'+esc(L(p,"name"))+'</div><div class="from">'+esc(p.shops?p.shops.name:"")+' · '+money(p.price_iqd)+'</div>'+(p.active?'':'<span class="pill">'+t("hidden")+'</span>')+featBtns(p)+'</div><button class="btn ghost" type="button" data-act="padm" data-id="'+p.id+'" data-v="'+(!p.active)+'">'+(p.active?t("hide"):t("show"))+'</button><button class="btn ghost" type="button" data-act="adel" data-id="'+p.id+'">'+t("delBtn")+'</button></div>'+(S.delP===p.id?'<div class="panel"><label>'+t("delReason")+'<textarea class="f" id="del-reason" rows="3"></textarea></label><div class="row"><button class="btn" type="button" data-act="delok" data-id="'+p.id+'">'+t("delConfirm")+'</button><button class="btn ghost" type="button" data-act="delcancel">'+t("cancel")+'</button></div></div>':'');}).join("")+'</div>';
+  h+='<div class="panel">'+admProdsSorted().map(function(p){return '<div class="row">'+pic(p,"thumb")+'<div class="info"><div style="font-weight:500">'+esc(L(p,"name"))+'</div><div class="from">'+esc(p.shops?p.shops.name:"")+' · '+money(p.price_iqd)+'</div>'+(p.active?'':'<span class="pill">'+t("hidden")+'</span>')+flagPill(p)+featBtns(p)+'</div><button class="btn ghost" type="button" data-act="padm" data-id="'+p.id+'" data-v="'+(!p.active)+'">'+(p.active?t("hide"):t("show"))+'</button><button class="btn ghost" type="button" data-act="adel" data-id="'+p.id+'">'+t("delBtn")+'</button></div>'+(S.delP===p.id?'<div class="panel"><label>'+t("delReason")+'<textarea class="f" id="del-reason" rows="3"></textarea></label><div class="row"><button class="btn" type="button" data-act="delok" data-id="'+p.id+'">'+t("delConfirm")+'</button><button class="btn ghost" type="button" data-act="delcancel">'+t("cancel")+'</button></div></div>':'');}).join("")+'</div>';
  }else if(S.atab==="aord"){
-  h+=orderCards(a.items.slice(0,100));
+  h+=admOrdSearch()+(S.osr?osrView():orderCards(a.items.slice(0,100)));
  }else if(S.atab==="cust"){h+=admCust();}else if(S.atab==="settle"){h+=admSettle();}else if(S.atab==="rev"){h+=admReviews();}else if(S.atab==="cpn"){h+=admCoupons();}else if(S.atab==="comp"){h+=admComp();}else if(S.atab==="req"){h+=admReqs();}else if(S.atab==="banners"){h+=admBanners();}else if(S.atab==="set"){
-  h+='<div class="panel"><div class="from">'+t("tierInfo")+'</div></div><div class="panel"><label>'+t("maxOpen")+'<input class="f" id="d-max" type="number" min="1" max="50" dir="ltr" value="'+esc(a.maxo)+'"></label><button class="btn" type="button" data-act="maxsave">'+t("save")+'</button></div>';
+  h+='<div class="panel"><div class="from">'+t("tierInfo")+'</div></div><div class="panel"><label>'+t("maxOpen")+'<input class="f" id="d-max" type="number" min="1" max="50" dir="ltr" value="'+esc(a.maxo)+'"></label><button class="btn" type="button" data-act="maxsave">'+t("save")+'</button></div>'+admSetExtra();
  }else{
-  h+=userStatsPanel();
+  h+=admOverview();h+=userStatsPanel();
   h+=statsPanel(a.items,true);
   var ords={},sales=0,comm=0;
   a.items.forEach(function(i){ords[i.order_id]=1;var m=i.unit_price_iqd*i.qty;if(i.status!=="cancelled")sales+=m;if(i.status==="delivered")comm+=commOf(i);});
@@ -1099,6 +1131,16 @@ async function doAct(el){
  if(a==="myord"){S.cartTab="orders";try{await loadOrders();}catch(e8){}go("cart");return;}
  if(a==="img"){S.pimg=S.pimg||{};S.pimg[id]=parseInt(v,10);keepScroll();return;}
  if(a==="pedit"){S.edit=parseInt(id,10);var ep0=S.mine.filter(function(x){return x.id===S.edit;})[0];VV("e");S.vv.e=hasVar(ep0)?{list:ep0.colors.slice(),st:Object.assign({},ep0.size_stock||{})}:{list:[],st:{}};render();return;}
+ if(a==="ovgo"){S.atab=v;S.ashop=null;keepScroll();window.scrollTo(0,0);return;}
+ if(a==="ashop"){S.atab="shops";S.ashop=id;keepScroll();window.scrollTo(0,0);return;}
+ if(a==="ashopx"){S.ashop=null;keepScroll();return;}
+ if(a==="osclear"){S.osr=null;keepScroll();return;}
+ if(a==="ashban"){if(!confirm(t("p45BanAsk")))return;try{var sb0=S.adm.shops.filter(function(x){return x.id===id;})[0];await upd("shops",{status:"suspended"},"id",id);if(sb0&&sb0.owner_id)await upd("profiles",{blocked:true},"id",sb0.owner_id);await loadAdmin();await loadPublic();toast(t("saved"));keepScroll();}catch(e8){toast(errText(e8));}return;}
+ if(a==="ashprods"){try{var pr8=await sb.from("products").update({active:v==="1"}).eq("shop_id",id).eq("deleted",false);if(pr8.error)throw pr8.error;await loadAdmin();await loadPublic();toast(t("saved"));keepScroll();}catch(e9){toast(errText(e9));}return;}
+ if(a==="annsave"){try{await setSet("announcement",($("a-ann").value||"").trim().slice(0,300));toast(t("saved"));keepScroll();}catch(e10){toast(errText(e10));}return;}
+ if(a==="annclear"){try{await setSet("announcement","");toast(t("saved"));keepScroll();}catch(e11){toast(errText(e11));}return;}
+ if(a==="maint"){try{await setSet("maintenance",v);toast(t("saved"));keepScroll();}catch(e12){toast(errText(e12));}return;}
+ if(a==="bwsave"){try{await setSet("banned_words",($("a-bw").value||"").trim());toast(t("saved"));keepScroll();}catch(e13){toast(errText(e13));}return;}
  if(a==="dash"){S.tab=v==="new"?"orders":(v==="today"?"today":"products");if(v==="new")S.ofl="new";keepScroll();window.scrollTo(0,0);return;}
  if(a==="ofl"){S.ofl=v;keepScroll();return;}
  if(a==="psel"){S.sel=S.sel||{};if(S.sel[id])delete S.sel[id];else S.sel[id]=1;keepScroll();return;}
@@ -1251,7 +1293,7 @@ async function doChange(el){
  var id=el.dataset.id,v=el.value;
  try{
   await upd("order_items",{status:v},"id",id);
-  [S.items,S.adm?S.adm.items:[]].forEach(function(list){list.forEach(function(i){if(String(i.id)===String(id))i.status=v;});});
+  [S.items,S.adm?S.adm.items:[],S.osr?S.osr.items:[]].forEach(function(list){list.forEach(function(i){if(String(i.id)===String(id))i.status=v;});});
   if(v==="cancelled")await loadPublic();
   if(v==="confirmed"){await refreshMine();if(S.adm)await loadAdmin();}
   S.newCnt=countNew();
@@ -2401,6 +2443,88 @@ function vStatement(){
   +ln(t("paidToKrp"),money(paid))+ln(t("owedL"),money(owe),1)+ln(t("p44Open"),money(r.open))
   +(pays.length?'<div class="shn">'+t("payHist2")+'</div>'+pays.map(function(p){return ln(esc((p.created_at||"").slice(0,10))+(p.note?' · '+esc(p.note):''),money(Number(p.amount_iqd)));}).join(""):'')
   +'</div><div class="row noprint" style="margin-top:10px"><button class="btn" type="button" data-act="invprint">🖨 '+t("p44Print")+'</button></div>';}
+
+var T45={
+ en:{p45Ov:"Overview",p45KSales:"Total revenue",p45KShops:"Active sellers",p45KToday:"Orders today",p45KComm:"KRP income",p45Tasks:"Open tasks",p45TPend:"sellers waiting for approval",p45TComp:"complaints open",p45TSet:"settlements to check",p45TOver:"overdue packages",p45TReq:"product requests open",p45TNone:"Nothing open. Well done!",p45Chart:"Revenue",p45This:"Last 14 days",p45Prev:"Previous 14 days",p45Best:"Bestsellers",p45Units:"units",p45Rank:"Seller ranking",p45Sales:"Sales",p45Rate:"Rating",p45Canc:"Cancel %",p45Hrs:"Delivery (h)",p45Comp:"Complaints",p45Back:"Back to sellers",p45Pause:"Pause shop",p45Ban:"Ban (fraud)",p45BanAsk:"Ban this seller and block the owner account?",p45React:"Reactivate",p45DeactAll:"Deactivate all products",p45ActAll:"Activate all products",p45Paused:"Paused",p45PausedMsg:"Your shop is paused by the platform. Please contact support.",p45Search:"Order number, customer name or phone",p45Go:"Search",p45NoRes:"No order found.",p45Hist:"History",p45Ann:"Announcement (shown to everyone)",p45AnnOff:"Remove",p45Maint:"Maintenance mode",p45MaintOn:"Maintenance mode is ON. Customers see a pause page.",p45MaintOff:"Maintenance mode is off.",p45TurnOn:"Turn on",p45TurnOff:"Turn off",p45MaintMsg:"We are doing a short maintenance. Please come back soon.",p45BW:"Flagged words (comma separated)",p45BWHint:"Products containing these words are marked for review.",p45Flag:"Check",p45Prods:"Products",p45Revs:"Reviews",p45Ords:"Orders",p45CommNote:"Commission is a fixed tier (500 IQD per 25,000 IQD per piece).",p45Clear:"Clear search",p45Fl1:"very low price",p45Fl2:"no photo",p45Fl3:"flagged word"},
+ ar:{p45Ov:"نظرة عامة",p45KSales:"إجمالي المبيعات",p45KShops:"التجار النشطون",p45KToday:"طلبات اليوم",p45KComm:"إيرادات KRP",p45Tasks:"مهام مفتوحة",p45TPend:"تجار بانتظار الموافقة",p45TComp:"شكاوى مفتوحة",p45TSet:"تسويات للمراجعة",p45TOver:"طرود متأخرة",p45TReq:"طلبات منتجات مفتوحة",p45TNone:"لا شيء مفتوح. أحسنت!",p45Chart:"المبيعات",p45This:"آخر 14 يوماً",p45Prev:"14 يوماً قبلها",p45Best:"الأكثر مبيعاً",p45Units:"قطعة",p45Rank:"ترتيب التجار",p45Sales:"المبيعات",p45Rate:"التقييم",p45Canc:"الإلغاء %",p45Hrs:"التوصيل (س)",p45Comp:"الشكاوى",p45Back:"العودة إلى التجار",p45Pause:"إيقاف المتجر مؤقتاً",p45Ban:"حظر (احتيال)",p45BanAsk:"حظر هذا التاجر وحجب حساب المالك؟",p45React:"إعادة التفعيل",p45DeactAll:"تعطيل كل المنتجات",p45ActAll:"تفعيل كل المنتجات",p45Paused:"متوقف مؤقتاً",p45PausedMsg:"تم إيقاف متجرك مؤقتاً من المنصة. يرجى التواصل مع الدعم.",p45Search:"رقم الطلب أو اسم العميل أو الهاتف",p45Go:"بحث",p45NoRes:"لم يتم العثور على طلب.",p45Hist:"السجل",p45Ann:"إعلان (يظهر للجميع)",p45AnnOff:"إزالة",p45Maint:"وضع الصيانة",p45MaintOn:"وضع الصيانة مفعّل. يرى العملاء صفحة توقف.",p45MaintOff:"وضع الصيانة متوقف.",p45TurnOn:"تفعيل",p45TurnOff:"إيقاف",p45MaintMsg:"نقوم بصيانة قصيرة. يرجى العودة قريباً.",p45BW:"كلمات محظورة (مفصولة بفواصل)",p45BWHint:"المنتجات التي تحتوي هذه الكلمات تُعلَّم للمراجعة.",p45Flag:"مراجعة",p45Prods:"المنتجات",p45Revs:"التقييمات",p45Ords:"الطلبات",p45CommNote:"العمولة ثابتة بالشرائح (500 د.ع لكل 25,000 د.ع للقطعة).",p45Clear:"مسح البحث",p45Fl1:"سعر منخفض جداً",p45Fl2:"بدون صورة",p45Fl3:"كلمة محظورة"},
+ ku:{p45Ov:"ڕوانگە",p45KSales:"کۆی فرۆشتن",p45KShops:"فرۆشیارە چالاکەکان",p45KToday:"داواکارییەکانی ئەمڕۆ",p45KComm:"داهاتی KRP",p45Tasks:"ئەرکە کراوەکان",p45TPend:"فرۆشیار چاوەڕێی ڕەزامەندین",p45TComp:"سکاڵای کراوە",p45TSet:"حیسابکردن بۆ پشکنین",p45TOver:"پاکەتی دواکەوتوو",p45TReq:"داواکاری کاڵای کراوە",p45TNone:"هیچ شتێک نەماوە. زۆر باش!",p45Chart:"فرۆشتن",p45This:"١٤ ڕۆژی ڕابردوو",p45Prev:"١٤ ڕۆژی پێشتر",p45Best:"زۆرترین فرۆشراو",p45Units:"دانە",p45Rank:"ڕیزبەندی فرۆشیاران",p45Sales:"فرۆشتن",p45Rate:"هەڵسەنگاندن",p45Canc:"هەڵوەشاندنەوە %",p45Hrs:"گەیاندن (کاتژمێر)",p45Comp:"سکاڵاکان",p45Back:"گەڕانەوە بۆ فرۆشیاران",p45Pause:"ڕاگرتنی دووکان",p45Ban:"قەدەغەکردن (فێڵ)",p45BanAsk:"ئەم فرۆشیارە قەدەغە بکرێت و هەژماری خاوەنەکەی بلۆک بکرێت؟",p45React:"دووبارە چالاککردن",p45DeactAll:"هەموو کاڵاکان ناچالاک بکە",p45ActAll:"هەموو کاڵاکان چالاک بکە",p45Paused:"ڕاگیراو",p45PausedMsg:"دووکانەکەت لەلایەن پلاتفۆرمەوە ڕاگیراوە. تکایە پەیوەندی بە پشتگیرییەوە بکە.",p45Search:"ژمارەی داواکاری، ناوی کڕیار یان تەلەفون",p45Go:"گەڕان",p45NoRes:"هیچ داواکارییەک نەدۆزرایەوە.",p45Hist:"مێژوو",p45Ann:"ڕاگەیاندن (بۆ هەمووان دەردەکەوێت)",p45AnnOff:"لابردن",p45Maint:"دۆخی چاککردنەوە",p45MaintOn:"دۆخی چاککردنەوە چالاکە. کڕیاران پەڕەی ڕاگرتن دەبینن.",p45MaintOff:"دۆخی چاککردنەوە کوژاوەتەوە.",p45TurnOn:"چالاک بکە",p45TurnOff:"بیکوژێنەوە",p45MaintMsg:"چاککردنەوەیەکی کورت دەکەین. تکایە لە ماوەیەکی کەمدا بگەڕێوە.",p45BW:"وشە قەدەغەکراوەکان (بە کۆما جیا بکرێنەوە)",p45BWHint:"ئەو کاڵایانەی ئەم وشانەیان تێدایە بۆ پشکنین نیشان دەکرێن.",p45Flag:"پشکنین",p45Prods:"کاڵاکان",p45Revs:"هەڵسەنگاندنەکان",p45Ords:"داواکارییەکان",p45CommNote:"کۆمیسیۆن پلەی چەسپاوە (٥٠٠ دینار بۆ هەر ٢٥,٠٠٠ دینار بۆ هەر دانەیەک).",p45Clear:"پاککردنەوەی گەڕان",p45Fl1:"نرخی زۆر کەم",p45Fl2:"بێ وێنە",p45Fl3:"وشەی نیشانکراو"}
+};
+Object.keys(T45).forEach(function(k){Object.keys(T45[k]).forEach(function(x){T[k][x]=T45[k][x];});});
+function sLabel(s){return s==="paused"?t("p45Paused"):((t("sst")||{})[s]||s);}
+function kfmt(v){v=Number(v)||0;return v>=1e6?(Math.round(v/1e5)/10)+"M":(v>=1e3?Math.round(v/1e3)+"K":String(Math.round(v)));}
+async function loadOv(){try{var r=await sb.rpc("admin_overview");S.ov=(r&&!r.error&&r.data)?r.data:null;}catch(e){S.ov=null;}}
+function smooth(pts){if(pts.length<2)return "";var d="M"+pts[0][0]+","+pts[0][1];for(var i=0;i<pts.length-1;i++){var p0=pts[i-1]||pts[i],p1=pts[i],p2=pts[i+1],p3=pts[i+2]||p2;d+=" C"+(p1[0]+(p2[0]-p0[0])/6).toFixed(1)+","+(p1[1]+(p2[1]-p0[1])/6).toFixed(1)+" "+(p2[0]-(p3[0]-p1[0])/6).toFixed(1)+","+(p2[1]-(p3[1]-p1[1])/6).toFixed(1)+" "+p2[0]+","+p2[1];}return d;}
+function lineChart(cur,prev){
+ var W=340,H=160,L=34,B=22,T0=8,R=6,n=cur.length,mx=Math.max(1,Math.max.apply(null,cur.map(function(x){return x.v;})),Math.max.apply(null,prev.concat([0]))),
+  X=function(i){return L+i*(W-L-R)/Math.max(1,n-1);},Y=function(v){return T0+(H-T0-B)*(1-v/mx);};
+ var pc=cur.map(function(x,i){return [X(i),Y(x.v)];}),pp=prev.map(function(v,i){return [X(i),Y(v)];});
+ var area=smooth(pc)+" L"+X(n-1)+","+(H-B)+" L"+X(0)+","+(H-B)+" Z";
+ var grid=[0,.5,1].map(function(f){var y=Y(mx*f);return '<line x1="'+L+'" x2="'+(W-R)+'" y1="'+y+'" y2="'+y+'" stroke="var(--line)" stroke-dasharray="3 4"/><text x="'+(L-5)+'" y="'+(y+4)+'" text-anchor="end" font-size="10" fill="var(--muted)">'+kfmt(mx*f)+'</text>';}).join("");
+ var xl=[0,Math.floor((n-1)/2),n-1].map(function(i){return '<text x="'+X(i)+'" y="'+(H-6)+'" text-anchor="middle" font-size="10" fill="var(--muted)">'+esc((cur[i].d||"").slice(5))+'</text>';}).join("");
+ var last=pc[n-1];
+ return '<svg class="chartw" viewBox="0 0 '+W+' '+H+'" role="img" aria-label="'+t("p45Chart")+'"><defs><linearGradient id="cg" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="var(--brand)" stop-opacity=".22"/><stop offset="1" stop-color="var(--brand)" stop-opacity="0"/></linearGradient></defs>'+grid+xl
+  +(prev.length?'<path d="'+smooth(pp)+'" fill="none" stroke="var(--muted)" stroke-opacity=".55" stroke-width="2"/>':'')
+  +'<path d="'+area+'" fill="url(#cg)"/><path d="'+smooth(pc)+'" fill="none" stroke="var(--brand)" stroke-width="2.6" stroke-linecap="round"/><circle cx="'+last[0]+'" cy="'+last[1]+'" r="4" fill="var(--surface)" stroke="var(--brand)" stroke-width="2.4"/></svg>'
+  +'<div class="leg"><span><i style="background:var(--brand)"></i>'+t("p45This")+'</span><span><i style="background:var(--muted);opacity:.6"></i>'+t("p45Prev")+'</span></div>';}
+function admOverview(){
+ var o=S.ov;if(!o)return '<div class="panel"><div class="from">'+t("noItems")+'</div></div>';
+ function kpi(l,v,u){return '<div class="kpi"><span>'+l+'</span><b>'+v+'</b><small>'+(u||"")+'</small></div>';}
+ var h='<div class="kpis">'+kpi(t("p45KSales"),num(o.sales),"IQD")+kpi(t("p45KShops"),num(o.shops_active),"")+kpi(t("p45KToday"),num(o.orders_today),"")+kpi(t("p45KComm"),num(Math.round(o.comm)),"IQD")+'</div>';
+ var tk=[[o.shops_pending,"p45TPend","shops",""],[o.complaints_open,"p45TComp","comp","red"],[o.owing_shops,"p45TSet","settle",""],[o.overdue,"p45TOver","aord","red"],[o.requests_open,"p45TReq","req","blue"]].filter(function(x){return Number(x[0])>0;});
+ h+='<div class="panel"><b>'+t("p45Tasks")+'</b>'+(tk.length?tk.map(function(x){return '<button class="tsk" type="button" data-act="ovgo" data-v="'+x[2]+'"><i class="'+x[3]+'">'+num(x[0])+'</i><span>'+t(x[1])+'</span><b aria-hidden="true">›</b></button>';}).join(""):'<div class="from">'+t("p45TNone")+'</div>')+'</div>';
+ if(o.daily&&o.daily.length)h+='<div class="panel"><b>'+t("p45Chart")+'</b>'+lineChart(o.daily,o.daily_prev||[])+'</div>';
+ var tp=o.top||[];
+ if(tp.length){var b0=tp[0];h+='<div class="panel"><b>'+t("p45Best")+'</b><div class="best">'+(b0.image_url?'<img src="'+esc(b0.image_url)+'" alt="">':'<span class="ph0"></span>')+'<div><div>'+esc(L(b0,"name"))+'</div><b>'+num(b0.units)+'</b> <span class="from">'+t("p45Units")+'</span></div></div>'
+  +tp.slice(1).map(function(x){return '<div class="sum"><span>'+esc(L(x,"name"))+'</span><span>'+num(x.units)+' '+t("p45Units")+'</span></div>';}).join("")+'</div>';}
+ var rk=o.rank||[];
+ if(rk.length)h+='<div class="panel"><b>'+t("p45Rank")+'</b><div class="rkw"><div class="rk h"><span></span><span>'+t("p45Sales")+'</span><span>'+t("p45Rate")+'</span><span>'+t("p45Canc")+'</span><span>'+t("p45Hrs")+'</span><span>'+t("p45Comp")+'</span></div>'
+  +rk.map(function(x){return '<div class="rk"><button type="button" data-act="ashop" data-id="'+x.id+'">'+esc(x.name)+'</button><span>'+money(x.sales)+'</span><span>'+(x.rating!=null?'★ '+num(x.rating)+' ('+num(x.reviews)+')':'—')+'</span><span>'+num(x.cancel_pct)+'%</span><span>'+(x.avg_hours!=null?num(x.avg_hours):'—')+'</span><span>'+num(x.complaints)+'</span></div>';}).join("")+'</div></div>';
+ return h;}
+function bwList(){var w=(S.adm&&S.adm.set&&S.adm.set.banned_words)||"";return w.split(",").map(function(x){return x.trim().toLowerCase();}).filter(Boolean);}
+function flagWhy(p){var r=[];if(Number(p.price_iqd)<500)r.push(t("p45Fl1"));if(!p.image_url&&!(p.images&&p.images.length))r.push(t("p45Fl2"));
+ var txt=[p.name_en,p.name_ar,p.name_ku,p.desc_en].join(" ").toLowerCase();if(bwList().some(function(w){return txt.indexOf(w)>-1;}))r.push(t("p45Fl3"));return r;}
+function flagPill(p){var r=flagWhy(p);return r.length?'<span class="pill lowp">⚠ '+t("p45Flag")+': '+esc(r.join(", "))+'</span>':'';}
+function admProdsSorted(){return S.adm.prods.slice().sort(function(a,b){return flagWhy(b).length-flagWhy(a).length;});}
+function tlBlock(g){var by={},ord=[];g.forEach(function(i){var k=i.shop_id;if(!by[k]){by[k]=[];ord.push(k);}by[k].push(i);});
+ return '<div class="panel"><b>'+t("p45Hist")+'</b>'+ord.map(function(k){var a=by[k],sa=a[0].status_at||{},sn=(a[0].shops&&a[0].shops.name)||"";
+  var ev=STATUS.filter(function(x){return sa[x];}).map(function(x){return {x:x,at:sa[x]};}).sort(function(p,q){return p.at<q.at?-1:1;});
+  var o=a[0].orders||{};
+  return '<div class="tl"><b>'+esc(sn)+'</b>'+(o.created_at?'<div>• '+esc(t("st")[0])+': '+esc(fmtTime(o.created_at))+'</div>':'')+ev.map(function(e){return '<div>• '+esc(t("st")[STATUS.indexOf(e.x)])+': '+esc(fmtTime(e.at))+'</div>';}).join("")+'</div>';}).join("")+'</div>';}
+function cmpBlock(oid){var l=(S.adm.comp||[]).filter(function(c){return c.order_id===oid;});return l.map(function(c){return '<div class="msg">⚠ '+esc((c.message||"").slice(0,120))+' · '+(c.status==="resolved"?t("resolvedL"):t("openL"))+'</div>';}).join("");}
+function admOrdSearch(){return '<form class="panel" id="osform" novalidate><label>'+t("p45Search")+'<input class="f" id="os-q" dir="auto" value="'+esc(S.osr?S.osr.q:"")+'"></label><div class="row"><button class="btn" type="submit">🔎 '+t("p45Go")+'</button>'+(S.osr?'<button class="btn ghost" type="button" data-act="osclear">'+t("p45Clear")+'</button>':'')+'</div></form>';}
+function osrView(){var gs=groupItems(S.osr.items||[]);if(!gs.length)return '<div class="panel"><div class="from">'+t("p45NoRes")+'</div></div>';
+ return gs.map(function(g){return orderCards(g)+tlBlock(g)+cmpBlock(g[0].order_id);}).join("");}
+async function osearch(q){q=String(q||"").replace(/[,()%_*]/g,"").trim();if(!q)return;var ids={};
+ try{
+  if(/^\d{1,12}$/.test(q)){var r1=await sb.from("orders").select("id").eq("id",parseInt(q,10)).limit(1);(r1.data||[]).forEach(function(x){ids[x.id]=1;});}
+  var lk="%"+q+"%",r2=await sb.from("orders").select("id").or("name.ilike."+lk+",phone.ilike."+lk).order("id",{ascending:false}).limit(20);(r2.data||[]).forEach(function(x){ids[x.id]=1;});
+  var list=Object.keys(ids).map(Number),its=[];
+  if(list.length){var c=await sb.from("order_items").select("*,orders(id,customer_id,name,phone,city,address,location_url,discount_iqd,disc_shop_id,disc_shop_iqd,delivery_fee_iqd,created_at),products(name_en,name_ar,name_ku),shops(name)").in("order_id",list).order("id",{ascending:false});if(c.error)throw c.error;its=c.data||[];}
+  S.osr={q:q,items:its};keepScroll();
+ }catch(e){toast(errText(e));}}
+function admShop(id){var a=S.adm,s=a.shops.filter(function(x){return x.id===id;})[0];if(!s)return "";
+ var rk=((S.ov&&S.ov.rank)||[]).filter(function(x){return x.id===id;})[0]||{},ow=s.profiles||{},ph=(a.sphone||{})[id]||ow.phone||"";
+ var its=a.items.filter(function(i){return i.shop_id===id;}),prods=a.prods.filter(function(p){return p.shop_id===id;}),rv=(S.reviews||[]).filter(function(r){return r.shop_id===id;}).slice(0,5);
+ function tile(l,v){return '<div class="astat"><b>'+v+'</b><span>'+l+'</span></div>';}
+ var h='<button class="crumb" type="button" data-act="ashopx">‹ '+t("p45Back")+'</button><div class="panel"><div class="row">'+logoImg(s,56)+'<div class="info"><div class="sum"><b>'+esc(s.name)+'</b><span class="pill">'+esc(sLabel(s.status))+'</span></div><div class="from">'+esc(ow.full_name||"")+'</div><div class="from">'+(s.city?esc(s.city)+' · ':'')+esc(s.address||"")+'</div></div></div>'+contactBtns(ph)+'</div>';
+ h+='<div class="astats fin">'+tile(t("p45Sales"),money(rk.sales||0))+tile(t("p45Ords"),num(rk.orders||0))+tile(t("p45Rate"),rk.rating!=null?'★ '+num(rk.rating):'—')+'</div><div class="astats" style="margin-top:8px">'+tile(t("p45Canc"),num(rk.cancel_pct||0)+'%')+tile(t("p45Hrs"),rk.avg_hours!=null?num(rk.avg_hours):'—')+tile(t("p45Comp"),num(rk.complaints||0))+'</div>';
+ h+='<div class="panel"><div class="dgrid">'+(s.status!=="approved"?'<button class="btn" type="button" data-act="shst" data-id="'+id+'" data-v="approved">'+(s.status==="pending"?t("approve"):t("p45React"))+'</button>':'')
+  +(s.status==="approved"?'<button class="btn ghost" type="button" data-act="shst" data-id="'+id+'" data-v="paused">⏸ '+t("p45Pause")+'</button>':'')
+  +(s.status!=="suspended"?'<button class="btn ghost" type="button" data-act="ashban" data-id="'+id+'" style="color:var(--price)">⛔ '+t("p45Ban")+'</button>':'')
+  +'<button class="btn ghost" type="button" data-act="chatshop2" data-id="'+id+'">💬 '+t("chatShopBtn")+'</button>'
+  +'<button class="btn ghost" type="button" data-act="ashprods" data-id="'+id+'" data-v="0">'+t("p45DeactAll")+'</button><button class="btn ghost" type="button" data-act="ashprods" data-id="'+id+'" data-v="1">'+t("p45ActAll")+'</button></div></div>';
+ h+='<div class="panel"><b>'+t("p45Prods")+' ('+num(prods.length)+')</b>'+prods.slice(0,30).map(function(p){return '<div class="row">'+pic(p,"thumb")+'<div class="info"><div style="font-weight:500">'+esc(L(p,"name"))+'</div><div class="from">'+money(p.price_iqd)+' · '+num(pTotal(p))+'</div>'+(p.active?'':'<span class="pill">'+t("hidden")+'</span> ')+flagPill(p)+'</div></div>';}).join("")+'</div>';
+ if(rv.length)h+='<div class="panel"><b>'+t("p45Revs")+'</b>'+rv.map(function(r){return '<div class="from">'+starStr(r.rating)+' '+esc(r.author||"")+' · '+esc((r.comment||"").slice(0,140))+'</div>';}).join("")+'</div>';
+ var gs=groupItems(its).slice(0,10);h+='<h3>'+t("p45Ords")+'</h3>'+orderCards([].concat.apply([],gs));
+ return h;}
+function admSetExtra(){var st=(S.adm&&S.adm.set)||{},on=S.adm&&S.adm.set&&S.adm.set.maintenance==="1";
+ return '<div class="panel"><b>📣 '+t("p45Ann")+'</b><textarea class="f" id="a-ann" rows="2" maxlength="300">'+esc(st.announcement||"")+'</textarea><div class="row"><button class="btn" type="button" data-act="annsave">'+t("save")+'</button><button class="btn ghost" type="button" data-act="annclear">'+t("p45AnnOff")+'</button></div></div>'
+  +'<div class="panel"><b>🛠 '+t("p45Maint")+'</b><div class="'+(on?'msg':'from')+'">'+t(on?"p45MaintOn":"p45MaintOff")+'</div><button class="btn'+(on?'':' ghost')+'" type="button" data-act="maint" data-v="'+(on?"0":"1")+'">'+t(on?"p45TurnOff":"p45TurnOn")+'</button></div>'
+  +'<div class="panel"><b>🚩 '+t("p45BW")+'</b><input class="f" id="a-bw" dir="auto" value="'+esc(st.banned_words||"")+'"><div class="from">'+t("p45BWHint")+'</div><button class="btn" type="button" data-act="bwsave">'+t("save")+'</button></div>'
+  +'<div class="panel"><div class="from">'+t("p45CommNote")+'</div></div>';}
+async function setSet(k,v){var r=await sb.from("settings").upsert({key:k,value:v});if(r.error)throw r.error;await loadAdmin();await loadPublic();}
+function annBar(){var tx="";if(S.profile&&S.profile.role==="admin"&&S.maint==="1")tx+='🛠 '+t("p45MaintOn")+' ';if(S.ann)tx+=esc(S.ann);return tx?'<div class="annb" role="status">'+tx+'</div>':"";}
+function maintPanel(){return '<div class="empty"><span style="font-size:42px">🛠</span><h2>'+t("p45Maint")+'</h2><span>'+t("p45MaintMsg")+'</span></div>';}
 var T34={
  en:{p34T:"Colors & patterns (optional)",p34Hint:"Add the colors or patterns this product comes in. You enter the stock for each one (and each size).",p34Colors:"Colors",p34Patterns:"Patterns",p34Own:"Own option, e.g. Black/White",p34StockHint:"Stock per option:",p34NeedStock:"Enter stock for at least one option.",p34Pick:"Color / pattern",p34Choose:"Please choose color/pattern and size first.",p34Max:"Maximum 30 options."},
  ar:{p34T:"الألوان والنقوش (اختياري)",p34Hint:"أضف الألوان أو النقوش المتوفرة لهذا المنتج. تدخل المخزون لكل خيار (ولكل مقاس).",p34Colors:"الألوان",p34Patterns:"النقوش",p34Own:"خيار خاص، مثل أسود/أبيض",p34StockHint:"المخزون لكل خيار:",p34NeedStock:"أدخل مخزوناً لخيار واحد على الأقل.",p34Pick:"اللون / النقش",p34Choose:"يرجى اختيار اللون/النقش والمقاس أولاً.",p34Max:"الحد الأقصى 30 خياراً."},
@@ -2490,6 +2614,7 @@ document.addEventListener("submit",async function(e){
  if(e.target.id==="rateform"){return doRate();}
  if(e.target.id==="cmpl"){return doComplete();}
  if(e.target.id==="accform"){return doProfileSave();}
+ if(e.target.id==="osform"){return osearch($("os-q").value);}
  if(e.target.id==="pwform"){return doPw();}
  if(e.target.id==="supform"){return doSupport();}
  if(e.target.id==="shopreg"){return doShopReg();}
