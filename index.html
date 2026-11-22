@@ -242,6 +242,12 @@ html[dir=rtl] .amenu .chev{transform:scaleX(-1)}
 .linkb{all:unset;cursor:pointer;font-weight:700;text-decoration:underline}
 .annb{background:#fff3cd;color:#5b4700;border:1px solid #e0b100;border-radius:12px;padding:10px 14px;margin-bottom:10px;font-weight:500}
 .tl{font-size:12.5px;color:var(--muted);margin:4px 0}
+.search input{color:var(--ink)!important;-webkit-text-fill-color:var(--ink);caret-color:var(--brand)}
+.search input::placeholder{color:var(--muted);opacity:1;-webkit-text-fill-color:var(--muted)}
+.hist .hrow{display:flex;align-items:center;gap:6px;border-top:1px solid var(--line)}
+.hist .hrow:first-of-type{border-top:0}
+.hist .hq{all:unset;flex:1;min-width:0;padding:11px 4px;cursor:pointer;display:flex;gap:10px;align-items:center}
+.hist .hx{all:unset;cursor:pointer;padding:8px 12px;color:var(--muted);font-size:18px}
 </style></head>
 <body>
 <style>
@@ -753,7 +759,7 @@ function render(){
  else if(r==="home"){h=vHome();}
  else if(r==="categories"){h='<h1>'+t("cats")+'</h1>'+catGrid();active="cats";}
  else if(r==="all"){h=listView(t("all"),S.prods);active="cats";}
- else if(r==="search"){var q=S.q.trim().toLowerCase();var l=S.prods.filter(function(p){return !q||matchQ(p,q);});h=listView(t("results"),l)+reqCta();active="cats";}
+ else if(r==="search"){var q=S.q.trim().toLowerCase();var l=S.prods.filter(function(p){return !q||matchQ(p,q);});h=(q?"":histPanel())+listView(t("results"),l)+reqCta();active="cats";}
  else if((m=r.match(/^cat-([A-Za-z0-9]+)$/))&&cat(m[1])){h=vCat(m[1]);active="cats";}
  else if((m=r.match(/^p-(\d+)$/))){h=vProduct(+m[1]);active="cats";}
  else if(r==="favorites"){h=vFavs();active="favs";}
@@ -1131,6 +1137,9 @@ async function doAct(el){
  if(a==="myord"){S.cartTab="orders";try{await loadOrders();}catch(e8){}go("cart");return;}
  if(a==="img"){S.pimg=S.pimg||{};S.pimg[id]=parseInt(v,10);keepScroll();return;}
  if(a==="pedit"){S.edit=parseInt(id,10);var ep0=S.mine.filter(function(x){return x.id===S.edit;})[0];VV("e");S.vv.e=hasVar(ep0)?{list:ep0.colors.slice(),st:Object.assign({},ep0.size_stock||{})}:{list:[],st:{}};render();return;}
+ if(a==="hsel"){S.q=v;$("q").value=v;histAdd(v);render();window.scrollTo(0,0);return;}
+ if(a==="hdel"){histSet(histGet().filter(function(x){return x!==v;}));keepScroll();return;}
+ if(a==="hclr"){histSet([]);keepScroll();return;}
  if(a==="ovgo"){S.atab=v;S.ashop=null;keepScroll();window.scrollTo(0,0);return;}
  if(a==="ashop"){S.atab="shops";S.ashop=id;keepScroll();window.scrollTo(0,0);return;}
  if(a==="ashopx"){S.ashop=null;keepScroll();return;}
@@ -2525,6 +2534,20 @@ function admSetExtra(){var st=(S.adm&&S.adm.set)||{},on=S.adm&&S.adm.set&&S.adm.
 async function setSet(k,v){var r=await sb.from("settings").upsert({key:k,value:v});if(r.error)throw r.error;await loadAdmin();await loadPublic();}
 function annBar(){var tx="";if(S.profile&&S.profile.role==="admin"&&S.maint==="1")tx+='🛠 '+t("p45MaintOn")+' ';if(S.ann)tx+=esc(S.ann);return tx?'<div class="annb" role="status">'+tx+'</div>':"";}
 function maintPanel(){return '<div class="empty"><span style="font-size:42px">🛠</span><h2>'+t("p45Maint")+'</h2><span>'+t("p45MaintMsg")+'</span></div>';}
+
+var T46={
+ en:{p46Recent:"Recent searches",p46Clear:"Clear all"},
+ ar:{p46Recent:"عمليات البحث الأخيرة",p46Clear:"مسح الكل"},
+ ku:{p46Recent:"گەڕانە دوایینەکان",p46Clear:"سڕینەوەی هەموو"}
+};
+Object.keys(T46).forEach(function(k){Object.keys(T46[k]).forEach(function(x){T[k][x]=T46[k][x];});});
+function histGet(){try{var a=JSON.parse(localStorage.getItem("krp_hist")||"[]");return Array.isArray(a)?a.filter(function(x){return typeof x==="string";}).slice(0,8):[];}catch(e){return [];}}
+function histSet(a){try{localStorage.setItem("krp_hist",JSON.stringify(a.slice(0,8)));}catch(e){}}
+function histAdd(q){q=String(q||"").trim();if(q.length<2)return;var a=histGet().filter(function(x){return x.toLowerCase()!==q.toLowerCase();});a.unshift(q);histSet(a);}
+function histPanel(){var a=histGet();if(!a.length)return "";
+ return '<div class="panel hist"><div class="sum"><b>🕘 '+t("p46Recent")+'</b><button type="button" class="hx" data-act="hclr" style="font-size:13px;text-decoration:underline">'+t("p46Clear")+'</button></div>'
+  +a.map(function(q){return '<div class="hrow"><button type="button" class="hq" data-act="hsel" data-v="'+esc(q)+'"><span aria-hidden="true">🔎</span><span>'+esc(q)+'</span></button><button type="button" class="hx" data-act="hdel" data-v="'+esc(q)+'" aria-label="×">×</button></div>';}).join("")+'</div>';}
+var histT=null;
 var T34={
  en:{p34T:"Colors & patterns (optional)",p34Hint:"Add the colors or patterns this product comes in. You enter the stock for each one (and each size).",p34Colors:"Colors",p34Patterns:"Patterns",p34Own:"Own option, e.g. Black/White",p34StockHint:"Stock per option:",p34NeedStock:"Enter stock for at least one option.",p34Pick:"Color / pattern",p34Choose:"Please choose color/pattern and size first.",p34Max:"Maximum 30 options."},
  ar:{p34T:"الألوان والنقوش (اختياري)",p34Hint:"أضف الألوان أو النقوش المتوفرة لهذا المنتج. تدخل المخزون لكل خيار (ولكل مقاس).",p34Colors:"الألوان",p34Patterns:"النقوش",p34Own:"خيار خاص، مثل أسود/أبيض",p34StockHint:"المخزون لكل خيار:",p34NeedStock:"أدخل مخزوناً لخيار واحد على الأقل.",p34Pick:"اللون / النقش",p34Choose:"يرجى اختيار اللون/النقش والمقاس أولاً.",p34Max:"الحد الأقصى 30 خياراً."},
@@ -2652,7 +2675,9 @@ document.addEventListener("submit",async function(e){
   go("done");
  }
 });
-$("q").addEventListener("input",function(e){S.q=e.target.value;if(route()==="search")render();else go("search");});
+$("q").addEventListener("input",function(e){S.q=e.target.value;clearTimeout(histT);histT=setTimeout(function(){histAdd(S.q);},1400);if(route()==="search")render();else go("search");});
+$("q").addEventListener("keydown",function(e){if(e.key==="Enter"){clearTimeout(histT);histAdd(S.q);e.target.blur();}});
+$("q").addEventListener("focus",function(){if(!S.q.trim()&&route()!=="search")go("search");});
 window.addEventListener("hashchange",onRoute);
 sb.auth.onAuthStateChange(function(ev){if(ev==="PASSWORD_RECOVERY"){S.recovery=true;setTimeout(function(){loadUser().then(function(){go("account");render();});},0);return;}if(ev==="SIGNED_OUT"){setTimeout(function(){S.geo=null;S.geoAcc=0;S.user=null;S.profile=null;S.cart=[];S.favs=[];S.orders=[];S.shop=null;S.items=[];S.newCnt=0;S.unread=0;S.convs=[];S.chat=null;stopChatPoll();render();},0);}});
 render();
