@@ -256,6 +256,7 @@ html[dir=rtl] .amenu .chev{transform:scaleX(-1)}
 .cat:active{transform:scale(.96)}
 @media (prefers-color-scheme:dark){:root:not([data-theme="light"]) .cico{background:linear-gradient(145deg,hsl(var(--h) 35% 24%),hsl(var(--h) 38% 18%));color:hsl(var(--h) 85% 76%);box-shadow:none}}
 :root[data-theme="dark"] .cico{background:linear-gradient(145deg,hsl(var(--h) 35% 24%),hsl(var(--h) 38% 18%));color:hsl(var(--h) 85% 76%);box-shadow:none}
+nav{inset-inline:0!important;max-width:none!important;margin:0!important;bottom:0!important;border-radius:0!important;border:0!important;border-top:1px solid var(--line)!important;background:var(--surface)!important;-webkit-backdrop-filter:none!important;backdrop-filter:none!important;box-shadow:0 -4px 18px rgba(0,0,0,.08)!important;padding:6px max(8px,env(safe-area-inset-right,0px)) calc(6px + env(safe-area-inset-bottom,0px)) max(8px,env(safe-area-inset-left,0px))!important}
 </style></head>
 <body>
 <style>
@@ -2558,6 +2559,7 @@ function histPanel(){var a=histGet();if(!a.length)return "";
 var histT=null;
 
 var ICONS2={
+ kid:'<circle cx="12" cy="8" r="4"/><path d="M9.5 7.6h.01M14.5 7.6h.01"/><path d="M10.2 9.6a2.6 2.6 0 0 0 3.6 0"/><path d="M6 21v-2a4 4 0 0 1 4-4h4a4 4 0 0 1 4 4v2"/><path d="M8.5 4.2 7 2.5M15.5 4.2 17 2.5"/>',
  clothes:'<path d="M20.4 3.5 16 2a4 4 0 0 1-8 0L3.6 3.5a2 2 0 0 0-1.3 2.2l.6 3.5a1 1 0 0 0 1 .8H6v10a2 2 0 0 0 2 2h8a2 2 0 0 0 2-2V10h2.2a1 1 0 0 0 1-.8l.6-3.5a2 2 0 0 0-1.4-2.2z"/>',
  shoes:'<path d="M2 17h20v2a1 1 0 0 1-1 1H3a1 1 0 0 1-1-1z"/><path d="M3 17V9l4 1.2L10 7l3 3 4 1c2.2.6 4 2 4 4.5V17"/><path d="M10 7v3M13 10v2"/>',
  pants:'<path d="M8 3h8l2 18h-4.5L12 12l-1.5 9H6z"/><path d="M8 3 6 21M9 7h6"/>',
@@ -2573,7 +2575,8 @@ var ICONS2={
  car:'<path d="M5 17H3v-5l2-5h14l2 5v5h-2"/><path d="M3 12h18"/><circle cx="7.5" cy="17" r="2"/><circle cx="16.5" cy="17" r="2"/><path d="M9.5 17h5"/>',
  tool:'<path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.8-3.8a6 6 0 0 1-7.9 7.9l-6.9 6.9a2.1 2.1 0 0 1-3-3l6.9-6.9a6 6 0 0 1 7.9-7.9l-3.8 3.8z"/>'
 };
-function cicon(c){var key=CATICON[c.id]||CATICON[c.parent_id]||CATICON[(cat(c.parent_id)||{}).parent_id]||"tool",h=isW(c.id)?332:hue(c.id);
+function cicon(c){var key=CATICON[c.id]||CATICON[c.parent_id]||CATICON[(cat(c.parent_id)||{}).parent_id]||"tool",h=isW(c.id)?332:hue(c.id),sid=String(c.id||"");
+ if(/^c1k(_|$)/.test(sid)){h=160;if(!CATICON[c.id])key="kid";}else if(/^c1m(_|$)/.test(sid)){h=215;}
  return '<span class="cico" style="--h:'+h+'" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">'+(ICONS2[key]||ICONS2.tool)+'</svg></span>';}
 var T34={
  en:{p34T:"Colors & patterns (optional)",p34Hint:"Add the colors or patterns this product comes in. You enter the stock for each one (and each size).",p34Colors:"Colors",p34Patterns:"Patterns",p34Own:"Own option, e.g. Black/White",p34StockHint:"Stock per option:",p34NeedStock:"Enter stock for at least one option.",p34Pick:"Color / pattern",p34Choose:"Please choose color/pattern and size first.",p34Max:"Maximum 30 options."},
