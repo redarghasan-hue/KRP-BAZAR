@@ -9,6 +9,7 @@
 <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20viewBox%3D%220%200%20100%20100%22%3E%3Crect%20width%3D%22100%22%20height%3D%22100%22%20rx%3D%2224%22%20fill%3D%22%2312283f%22%2F%3E%3Ctext%20x%3D%2250%22%20y%3D%2258%22%20text-anchor%3D%22middle%22%20font-family%3D%22Arial%22%20font-weight%3D%22800%22%20font-size%3D%2238%22%20fill%3D%22%23fff%22%3EKRP%3C%2Ftext%3E%3Cpath%20d%3D%22M20%2068h60l-6%2012H26z%22%20fill%3D%22%23f0a800%22%2F%3E%3C%2Fsvg%3E">
 <link rel="apple-touch-icon" href="apple-touch-icon.png">
 <meta name="theme-color" content="#13293d">
+<meta property="og:title" content="KRP Bazar"><meta property="og:description" content="Kurdistan Post Bazar – Online-Marktplatz in Erbil, Zahlung bei Lieferung"><meta property="og:image" content="https://redarghasan-hue.github.io/KRP-BAZAR/apple-touch-icon.png"><meta property="og:type" content="website">
 <title>KRP Bazar</title>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Noto+Sans+Arabic:wght@400;500;600;700&display=swap">
 <style>
@@ -277,6 +278,7 @@ nav{inset-inline:0!important;max-width:none!important;margin:0!important;bottom:
 .ali-k .cico{width:56px;height:56px;border-radius:50%}
 .ali-k .cico svg{width:28px;height:28px}
 .ali-main .grid{gap:10px}
+.fav.shr{inset-inline-end:50px}
 </style></head>
 <body>
 <style>
@@ -666,7 +668,7 @@ function vProduct(id){
  var fav=S.favs.indexOf(p.id)>-1,c=cat(p.category_id);
  var stock=p.stock>0?(p.stock<=5?t("stock").replace("{n}",num(p.stock)):t("inStock")):t("out");
  return '<button class="crumb" type="button" data-go="cat-'+esc(p.category_id)+'">‹ '+esc(c?L(c,"name"):t("back"))+'</button>'
-  +(p.video_url?'<div style="order:0">'+vidTag(p.video_url,(p.images&&p.images[0])||p.image_url)+'</div>':'')+'<div style="position:relative">'+gallery(p)+'<button class="fav" type="button" data-fav="'+p.id+'" aria-pressed="'+fav+'" aria-label="'+t("favs")+'"><svg viewBox="0 0 24 24" fill="'+(fav?"currentColor":"none")+'" stroke="currentColor" stroke-width="2"><path d="M12 21s-8-5.2-8-11a4.6 4.6 0 0 1 8-3 4.6 4.6 0 0 1 8 3c0 5.8-8 11-8 11z"/></svg></button></div>'
+  +(p.video_url?'<div style="order:0">'+vidTag(p.video_url,(p.images&&p.images[0])||p.image_url)+'</div>':'')+'<div style="position:relative">'+gallery(p)+'<button class="fav shr" type="button" data-act="share" data-id="'+p.id+'" aria-label="'+t("p51Share")+'"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><path d="m8.6 13.5 6.8 4M15.4 6.5l-6.8 4"/></svg></button><button class="fav" type="button" data-fav="'+p.id+'" aria-pressed="'+fav+'" aria-label="'+t("favs")+'"><svg viewBox="0 0 24 24" fill="'+(fav?"currentColor":"none")+'" stroke="currentColor" stroke-width="2"><path d="M12 21s-8-5.2-8-11a4.6 4.6 0 0 1 8-3 4.6 4.6 0 0 1 8 3c0 5.8-8 11-8 11z"/></svg></button></div>'
   +'<div><h1>'+esc(L(p,"name"))+'</h1><div class="price" style="font-size:24px;margin-top:4px">'+money(p.price_iqd)+oldTag(p,"pold")+(discP(p)?' <span class="dbadge" style="position:static;display:inline-block"><bdi dir="ltr">-'+discP(p)+'%</bdi></span>':'')+'</div></div>'
   +'<div class="panel"><b>'+t("desc")+'</b><span>'+esc(L(p,"desc"))+'</span></div>'
   +'<div class="panel">'+sizePick(p)+'<div class="offer"><div>'+shopLink(p.shops)+'<small>'+t("seller")+' · '+stock+'</small></div><button class="btn" type="button" data-add="'+p.id+'"'+(p.stock>0?"":" disabled")+'>'+t("add")+'</button></div></div>'+chatBtn(p.shop_id);
@@ -1142,6 +1144,10 @@ async function doAddProduct(){
 async function doAct(el){
  var a=el.dataset.act,id=el.dataset.id,v=el.dataset.v;
  if(a==="tab"){S.tab=v;keepScroll();return;}
+ if(a==="share"){var sp=prod(+id);if(!sp)return;var su=location.origin+location.pathname+"#p-"+sp.id,st=L(sp,"name")+" – "+money(sp.price_iqd)+" · KRP Bazar";
+  try{if(navigator.share){await navigator.share({title:"KRP Bazar",text:st,url:su});return;}}catch(e){if(e&&e.name==="AbortError")return;}
+  try{await navigator.clipboard.writeText(st+"\n"+su);toast(t("p51Copied"));}catch(e){window.open("https://wa.me/?text="+encodeURIComponent(st+"\n"+su),"_blank");}
+  return;}
  if(a==="catsel"){S.catSel=v;render();window.scrollTo(0,0);return;}
  if(a==="catpick"){var ci=$(id);if(ci)ci.value=v;document.querySelectorAll('.cpick[data-for="'+id+'"] .ctile').forEach(function(b){var on=b.dataset.v===v;b.classList.toggle("on",on);b.setAttribute("aria-pressed",on?"true":"false");});resizeBox(id==="p-cat"?"p":"e",v);return;}
  if(a==="invnew"){var ir=await sb.rpc("create_shop_invite",{p_province:$("inv-prov").value,p_note:$("inv-note").value.trim()});if(ir.error){toast(errText(ir.error));return;}await loadAdmin();toast(ir.data);keepScroll();return;}
@@ -2609,6 +2615,11 @@ var ICONS2={
 function cicon(c){var key=CATICON[c.id]||CATICON[c.parent_id]||CATICON[(cat(c.parent_id)||{}).parent_id]||"tool",h=isW(c.id)?332:hue(c.id),sid=String(c.id||"");
  if(/^c1k(_|$)/.test(sid)){h=160;if(!CATICON[c.id])key="kid";}else if(/^c1m(_|$)/.test(sid)){h=215;}
  return '<span class="cico" style="--h:'+h+'" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">'+(ICONS2[key]||ICONS2.tool)+'</svg></span>';}
+var T51={
+ en:{p51Share:"Share",p51Copied:"Link copied"},
+ ar:{p51Share:"مشاركة",p51Copied:"تم نسخ الرابط"},
+ ku:{p51Share:"هاوبەشکردن",p51Copied:"بەستەر کۆپی کرا"}};
+Object.keys(T51).forEach(function(k){Object.keys(T51[k]).forEach(function(x){T[k][x]=T51[k][x];});});
 var T34={
  en:{p34T:"Colors & patterns (optional)",p34Hint:"Add the colors or patterns this product comes in. You enter the stock for each one (and each size).",p34Colors:"Colors",p34Patterns:"Patterns",p34Own:"Own option, e.g. Black/White",p34StockHint:"Stock per option:",p34NeedStock:"Enter stock for at least one option.",p34Pick:"Color / pattern",p34Choose:"Please choose color/pattern and size first.",p34Max:"Maximum 30 options."},
  ar:{p34T:"الألوان والنقوش (اختياري)",p34Hint:"أضف الألوان أو النقوش المتوفرة لهذا المنتج. تدخل المخزون لكل خيار (ولكل مقاس).",p34Colors:"الألوان",p34Patterns:"النقوش",p34Own:"خيار خاص، مثل أسود/أبيض",p34StockHint:"المخزون لكل خيار:",p34NeedStock:"أدخل مخزوناً لخيار واحد على الأقل.",p34Pick:"اللون / النقش",p34Choose:"يرجى اختيار اللون/النقش والمقاس أولاً.",p34Max:"الحد الأقصى 30 خياراً."},
