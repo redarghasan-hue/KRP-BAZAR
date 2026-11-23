@@ -6,25 +6,25 @@
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-title" content="KRP Bazar">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-<link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20viewBox%3D%220%200%20100%20100%22%3E%3Crect%20width%3D%22100%22%20height%3D%22100%22%20rx%3D%2224%22%20fill%3D%22%2312283f%22%2F%3E%3Ctext%20x%3D%2250%22%20y%3D%2258%22%20text-anchor%3D%22middle%22%20font-family%3D%22Arial%22%20font-weight%3D%22800%22%20font-size%3D%2238%22%20fill%3D%22%23fff%22%3EKRP%3C%2Ftext%3E%3Cpath%20d%3D%22M20%2068h60l-6%2012H26z%22%20fill%3D%22%23f0a800%22%2F%3E%3C%2Fsvg%3E">
+<link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20viewBox%3D%220%200%20120%20120%22%3E%3Cdefs%3E%3ClinearGradient%20id%3D%22b%22%20x1%3D%220%22%20y1%3D%220%22%20x2%3D%221%22%20y2%3D%221%22%3E%3Cstop%20offset%3D%220%22%20stop-color%3D%22%237c3aed%22%2F%3E%3Cstop%20offset%3D%221%22%20stop-color%3D%22%233b1485%22%2F%3E%3C%2FlinearGradient%3E%3ClinearGradient%20id%3D%22g%22%20x1%3D%220%22%20y1%3D%220%22%20x2%3D%221%22%20y2%3D%221%22%3E%3Cstop%20offset%3D%220%22%20stop-color%3D%22%23ffd23f%22%2F%3E%3Cstop%20offset%3D%221%22%20stop-color%3D%22%23ff8a00%22%2F%3E%3C%2FlinearGradient%3E%3C%2Fdefs%3E%3Crect%20width%3D%22120%22%20height%3D%22120%22%20rx%3D%2226%22%20fill%3D%22url%28%23b%29%22%2F%3E%3Cpath%20d%3D%22M58%2046c0-20%2028-20%2028%200%22%20fill%3D%22none%22%20stroke%3D%22url%28%23g%29%22%20stroke-width%3D%228%22%20stroke-linecap%3D%22round%22%2F%3E%3Cpath%20d%3D%22M46%2046h52l-6%2050a6%206%200%200%201-6%205H58a6%206%200%200%201-6-5z%22%20fill%3D%22url%28%23g%29%22%2F%3E%3Cpath%20d%3D%22M98%20100V66L66%20101z%22%20fill%3D%22%23fff%22%2F%3E%3C%2Fsvg%3E">
 <link rel="apple-touch-icon" href="apple-touch-icon.png">
-<meta name="theme-color" content="#13293d">
+<meta name="theme-color" content="#5b21d6">
 <meta property="og:title" content="KRP Bazar"><meta property="og:description" content="Kurdistan Post Bazar – Online-Marktplatz in Erbil, Zahlung bei Lieferung"><meta property="og:image" content="https://redarghasan-hue.github.io/KRP-BAZAR/apple-touch-icon.png"><meta property="og:type" content="website">
 <title>KRP Bazar</title>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Noto+Sans+Arabic:wght@400;500;600;700&display=swap">
 <style>
 /* Layout: mobile-first storefront, sticky header with search, bottom tab bar, content in a 720px column. */
 :root{
-  --bg:#f1f3f6; --surface:#ffffff; --ink:#13293d; --muted:#5b6b7c; --line:#dde3ea;
-  --brand:#13293d; --brand-ink:#ffffff; --accent:#f2a900; --accent-ink:#13293d; --price:#b12704; --ok:#16794c;
+  --bg:#f5f2fc; --surface:#ffffff; --ink:#1d1233; --muted:#6b6385; --line:#e3ddf2;
+  --brand:#5b21d6; --brand-ink:#ffffff; --accent:#6d28d9; --accent-ink:#ffffff; --price:#d4153c; --ok:#16794c;
   --font:'Inter','Noto Sans Arabic',system-ui,-apple-system,'Segoe UI',Tahoma,sans-serif;
 }
 @media (prefers-color-scheme:dark){:root:not([data-theme="light"]){
-  --bg:#0e1620; --surface:#16212d; --ink:#e8eef5; --muted:#9aabbd; --line:#26364a;
-  --brand:#0a111a; --brand-ink:#e8eef5; --accent:#f2b51f; --accent-ink:#13293d; --price:#ff8a65; --ok:#4cc38a; color-scheme:dark}}
+  --bg:#120b24; --surface:#1c1233; --ink:#efe9ff; --muted:#a99cc9; --line:#33264f;
+  --brand:#2a1260; --brand-ink:#ffffff; --accent:#8b5cf6; --accent-ink:#ffffff; --price:#ff8aa0; --ok:#4cc38a; color-scheme:dark}}
 :root[data-theme="dark"]{
-  --bg:#0e1620; --surface:#16212d; --ink:#e8eef5; --muted:#9aabbd; --line:#26364a;
-  --brand:#0a111a; --brand-ink:#e8eef5; --accent:#f2b51f; --accent-ink:#13293d; --price:#ff8a65; --ok:#4cc38a; color-scheme:dark}
+  --bg:#120b24; --surface:#1c1233; --ink:#efe9ff; --muted:#a99cc9; --line:#33264f;
+  --brand:#2a1260; --brand-ink:#ffffff; --accent:#8b5cf6; --accent-ink:#ffffff; --price:#ff8aa0; --ok:#4cc38a; color-scheme:dark}
 *{box-sizing:border-box}
 html,body{margin:0}
 body{background:var(--bg);color:var(--ink);font-family:var(--font);font-size:15px;line-height:1.5;
@@ -282,6 +282,39 @@ nav{inset-inline:0!important;max-width:none!important;margin:0!important;bottom:
 .vbadge{display:inline-grid;place-items:center;width:17px;height:17px;border-radius:50%;background:#1d9bf0;color:#fff;font-size:11px;font-weight:800;vertical-align:middle;margin-inline-start:4px}
 .vpill{display:inline-block;background:#1d9bf0;color:#fff;border-radius:999px;padding:2px 10px;font-size:12px;font-weight:700;margin:2px 0}
 .cartbar{display:flex;justify-content:space-between;align-items:center;gap:8px;width:100%;background:var(--accent);color:var(--accent-ink);border:0;border-radius:14px;padding:13px 16px;font-size:14px;font-weight:600;cursor:pointer;text-align:start}
+.logo .wm{font-weight:800;font-size:22px;font-style:italic;letter-spacing:.01em}
+header{background:linear-gradient(135deg,#6d28d9,#4c1d95)}
+body::before{background:#6d28d9}
+.langs button[aria-pressed="true"]{background:#fff!important;color:#4c1d95!important;border-color:#fff!important}
+.search{border-radius:14px;box-shadow:0 2px 10px rgba(30,10,80,.25)}
+.search span{background:var(--accent)!important;color:#fff!important}
+.banner,.banner:not(.x){background:linear-gradient(120deg,#4c1d95,#7c3aed 60%,#a78bfa)!important}
+.banner button{background:#fff!important;color:#4c1d95!important}
+.card{border-radius:16px;border-color:transparent;box-shadow:0 2px 12px rgba(60,30,120,.10)}
+.card .price{display:block;padding-inline-end:44px}
+.qa{position:absolute;bottom:10px;inset-inline-end:10px;width:36px;height:36px;border-radius:11px;border:0;background:var(--accent);color:#fff;display:grid;place-items:center;z-index:2;box-shadow:0 3px 8px rgba(109,40,217,.35);transition:transform .15s ease}
+.qa:active{transform:scale(.9)}
+.qa svg{width:19px;height:19px}
+nav{background:var(--surface)!important}
+nav button[aria-current="page"]{background:color-mix(in srgb,var(--accent) 14%,transparent)!important;color:var(--accent)!important;font-weight:700}
+nav button[aria-current="page"] svg{color:var(--accent)!important}
+.btn.ghost{color:var(--accent);border-color:color-mix(in srgb,var(--accent) 45%,transparent)}
+.acard{background:linear-gradient(160deg,#6d28d9,#4c1d95)!important;color:#fff!important;border:0!important;border-radius:20px}
+.acard .aname{color:#fff}
+.acard .pill{background:rgba(255,255,255,.2);color:#fff;border:0}
+.acard .btn.ghost,.acard label.btn{background:rgba(255,255,255,.16)!important;color:#fff!important;border-color:transparent!important}
+.astats .astat{border:0;color:#fff;box-shadow:0 3px 10px rgba(0,0,0,.12)}
+.astats .astat b,.astats .astat span{color:#fff}
+.astats .astat:nth-child(1){background:linear-gradient(145deg,#3b82f6,#1d4ed8)}
+.astats .astat:nth-child(2){background:linear-gradient(145deg,#22c55e,#15803d)}
+.astats .astat:nth-child(3){background:linear-gradient(145deg,#fb923c,#ea580c)}
+#splash{position:fixed;inset:0;z-index:100;display:grid;place-items:center;background:radial-gradient(120% 90% at 50% 0%,#7c3aed,#4c1d95 55%,#2a0f63);color:#fff;transition:opacity .45s ease}
+#splash.out{opacity:0;pointer-events:none}
+.sp-in{display:flex;flex-direction:column;align-items:center;gap:10px;animation:spin .7s cubic-bezier(.2,.8,.2,1) both}
+.sp-t{font-size:40px;font-weight:800;font-style:italic;letter-spacing:.01em}
+.sp-s{font-size:15px;font-weight:500;opacity:.9}
+@keyframes spin{from{opacity:0;transform:translateY(14px) scale(.94)}to{opacity:1;transform:none}}
+@media (prefers-reduced-motion:reduce){.sp-in{animation:none}}
 </style></head>
 <body>
 <style>
@@ -436,7 +469,7 @@ body{padding-block-end:108px!important}
 </style>
 <header>
   <div class="hrow">
-    <button class="logo" id="logo" type="button"><svg viewBox="0 0 80 80" width="38" height="38" aria-hidden="true" style="flex:none"><rect width="80" height="80" rx="20" fill="#f0a800"/><path d="M24 18v40M24 38l20-18M28 36l18 22" stroke="#12283f" stroke-width="8" stroke-linecap="round" stroke-linejoin="round" fill="none"/><path d="M50 28h20l-3 18H54" stroke="#12283f" stroke-width="4.5" fill="none" stroke-linecap="round" stroke-linejoin="round"/><circle cx="54" cy="55" r="3.5" fill="#12283f"/><circle cx="66" cy="55" r="3.5" fill="#12283f"/></svg><span dir="ltr" style="display:flex;flex-direction:column;line-height:1;text-align:start"><b style="font-size:22px;font-weight:800;letter-spacing:.02em">KRP</b><small style="font-size:10px;font-weight:600;letter-spacing:.38em;color:var(--accent);margin-top:3px">BAZAR</small></span></button>
+    <button class="logo" id="logo" type="button"><svg viewBox="0 0 120 120" width="42" height="42" aria-hidden="true" style="flex:none"><defs><linearGradient id="lgh" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#ffd23f"/><stop offset="1" stop-color="#ff8a00"/></linearGradient></defs><path d="M10 52h26M16 66h22M24 80h16" stroke="#ffb703" stroke-width="6" stroke-linecap="round"/><path d="M58 46c0-20 28-20 28 0" fill="none" stroke="url(#lgh)" stroke-width="8" stroke-linecap="round"/><path d="M46 46h52l-6 50a6 6 0 0 1-6 5H58a6 6 0 0 1-6-5z" fill="url(#lgh)"/><path d="M98 100V66L66 101z" fill="#fff" opacity=".95"/></svg><span dir="ltr" class="wm">KRP Bazar</span></button>
     <div class="langs" id="langs" role="group" aria-label="Language">
       <button type="button" data-l="ku">کوردی</button>
       <button type="button" data-l="ar">عربي</button>
@@ -449,6 +482,8 @@ body{padding-block-end:108px!important}
   </div>
 </header>
 <main id="main"></main>
+<div id="splash" aria-hidden="true"><div class="sp-in"><svg viewBox="0 0 120 120" width="112" height="112" aria-hidden="true" style="flex:none"><defs><linearGradient id="lgs" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#ffd23f"/><stop offset="1" stop-color="#ff8a00"/></linearGradient></defs><path d="M10 52h26M16 66h22M24 80h16" stroke="#ffb703" stroke-width="6" stroke-linecap="round"/><path d="M58 46c0-20 28-20 28 0" fill="none" stroke="url(#lgs)" stroke-width="8" stroke-linecap="round"/><path d="M46 46h52l-6 50a6 6 0 0 1-6 5H58a6 6 0 0 1-6-5z" fill="url(#lgs)"/><path d="M98 100V66L66 101z" fill="#fff" opacity=".95"/></svg><div class="sp-t" dir="ltr">KRP Bazar</div><div class="sp-s" id="sp-s"></div></div></div>
+<script>(function(){try{var d=document.getElementById("splash");if(sessionStorage.getItem("krp_sp")){d.remove();return;}sessionStorage.setItem("krp_sp","1");var l="en";try{l=JSON.parse(localStorage.getItem("bazar2")||"{}").lang||"en";}catch(e1){}var tx={en:"Buy • Sell • Discover",ar:"اشترِ • بِع • اكتشف",ku:"بکڕە • بفرۆشە • بدۆزەرەوە"};document.getElementById("sp-s").textContent=tx[l]||tx.en;setTimeout(function(){d.classList.add("out");setTimeout(function(){d.remove();},450);},1300);}catch(e){var x=document.getElementById("splash");if(x)x.remove();}})();</script>
 <div class="toast" id="toast" aria-live="polite"></div>
 <nav><div id="nav"></div></nav>
 
@@ -615,7 +650,7 @@ function card(p){
  var fav=S.favs.indexOf(p.id)>-1;
  return '<div class="card">'+(discP(p)?'<span class="dbadge"><bdi dir="ltr">-'+discP(p)+'%</bdi></span>':'')+'<button class="fav" type="button" data-fav="'+p.id+'" aria-pressed="'+fav+'" aria-label="'+t("favs")+'"><svg viewBox="0 0 24 24" fill="'+(fav?"currentColor":"none")+'" stroke="currentColor" stroke-width="2"><path d="M12 21s-8-5.2-8-11a4.6 4.6 0 0 1 8-3 4.6 4.6 0 0 1 8 3c0 5.8-8 11-8 11z"/></svg></button>'
   +'<button type="button" data-p="'+p.id+'" style="all:unset;cursor:pointer;display:flex;flex-direction:column;width:100%">'+pic(p,"pic")
-  +'<div class="body"><span class="name">'+esc(L(p,"name"))+'</span>'+(isFeat(p)?'<span class="ad">★ '+t("featured")+'</span>':'')+'<span class="from">'+esc(p.shops?p.shops.name:"")+'</span><span class="price">'+money(p.price_iqd)+oldTag(p)+'</span></div></button></div>';
+  +'<div class="body"><span class="name">'+esc(L(p,"name"))+'</span>'+(isFeat(p)?'<span class="ad">★ '+t("featured")+'</span>':'')+'<span class="from">'+esc(p.shops?p.shops.name:"")+'</span><span class="price">'+money(p.price_iqd)+oldTag(p)+'</span></div></button>'+(p.stock>0&&!(p.sizes&&p.sizes.length)?'<button class="qa" type="button" data-qadd="'+p.id+'" aria-label="'+t("add")+'"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="20" r="1.5"/><circle cx="18" cy="20" r="1.5"/><path d="M2 3h3l2.7 12.4a2 2 0 0 0 2 1.6h7.7a2 2 0 0 0 2-1.5L21 7H6"/></svg></button>':'')+'</div>';
 }
 function sorted(list){var l=list.slice();if(S.sort==="1")l.sort(function(a,b){return a.price_iqd-b.price_iqd;});if(S.sort==="2")l.sort(function(a,b){return b.price_iqd-a.price_iqd;});return l;}
 function sortBar(title,n){return '<div class="bar"><h2 style="margin:0">'+esc(title)+' <span class="from">('+num(n)+')</span></h2><label style="flex-direction:row;align-items:center;gap:6px">'+t("sortBy")+'<select id="sort"><option value="0"'+(S.sort==="0"?" selected":"")+'>'+t("s0")+'</option><option value="1"'+(S.sort==="1"?" selected":"")+'>'+t("s1")+'</option><option value="2"'+(S.sort==="2"?" selected":"")+'>'+t("s2")+'</option></select></label></div>';}
@@ -2757,7 +2792,7 @@ function catPicker(id,sel,list){
   +groups.map(function(g){return (g.h?'<h4>'+esc(g.h)+'</h4>':'')+'<div class="cgrid">'+g.items.map(function(c){var on=c.id===sel;return '<button type="button" class="ctile'+(on?' on':'')+'" data-act="catpick" data-id="'+id+'" data-v="'+esc(c.id)+'" aria-pressed="'+on+'">'+cicon(c)+'<span>'+esc(L(c,"name"))+'</span></button>';}).join("")+'</div>';}).join("")+'</div>';}
 /* ---------- Events ---------- */
 document.addEventListener("click",function(e){
- var el=e.target.closest("[data-act],[data-go],[data-p],[data-fav],[data-lang2],[data-add],[data-q],[data-auth],#logo,#logout,#retry,#langs button");if(!el)return;
+ var el=e.target.closest("[data-act],[data-go],[data-p],[data-fav],[data-lang2],[data-add],[data-qadd],[data-q],[data-auth],#logo,#logout,#retry,#langs button");if(!el)return;
  if(el.dataset.act){doAct(el);return;}
  if(el.id==="logo"){S.q="";$("q").value="";go("home");return;}
  if(el.id==="retry"){S.ready=false;render();loadPublic().then(render);return;}
@@ -2769,6 +2804,7 @@ document.addEventListener("click",function(e){
  if(el.dataset.lang2){S.lang=el.dataset.lang2;saveLang();render();return;}
  if(el.dataset.fav){toggleFav(+el.dataset.fav);return;}
  if(el.dataset.add){addToCart(+el.dataset.add);return;}
+ if(el.dataset.qadd){addToCart(+el.dataset.qadd);return;}
  if(el.dataset.q){changeQty(+el.dataset.q,el.dataset.s||"",+el.dataset.d);return;}
 });
 document.addEventListener("change",function(e){if(e.target.dataset&&e.target.dataset.cact){doChange(e.target);return;}if(e.target.id==="p-cat"||e.target.id==="e-cat"){resizeBox(e.target.id==="p-cat"?"p":"e",e.target.value);return;}if(e.target.id==="sort"){S.sort=e.target.value;keepScroll();}});
