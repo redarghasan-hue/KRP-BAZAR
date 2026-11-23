@@ -159,7 +159,7 @@ header .search input{height:50px;font-size:16px;border-radius:16px}
 .dbadge{position:absolute;top:8px;inset-inline-start:8px;z-index:3;background:#d93025;color:#fff;font-size:12px;font-weight:800;padding:2px 8px;border-radius:99px}
 .hs{display:flex;gap:12px;overflow-x:auto;scroll-snap-type:x mandatory;-webkit-overflow-scrolling:touch;padding:2px 2px 10px;scrollbar-width:none}
 .hs::-webkit-scrollbar{display:none}
-.hsi{flex:0 0 46%;max-width:200px;scroll-snap-align:start;display:flex}
+.hsi{flex:0 0 44%;scroll-snap-align:start;display:flex}
 .hsi .card{width:100%}
 .hs2{display:flex;align-items:baseline;justify-content:space-between;gap:8px;margin-bottom:6px}
 .hs2 h2{margin:0}
@@ -315,6 +315,8 @@ nav button[aria-current="page"] svg{color:var(--accent)!important}
 .sp-s{font-size:15px;font-weight:500;opacity:.9}
 @keyframes spin{from{opacity:0;transform:translateY(14px) scale(.94)}to{opacity:1;transform:none}}
 @media (prefers-reduced-motion:reduce){.sp-in{animation:none}}
+.hs.few .hsi{flex:1 1 0;min-width:0}
+.card{height:100%}
 </style></head>
 <body>
 <style>
@@ -682,7 +684,7 @@ function card(p){
  var fav=S.favs.indexOf(p.id)>-1;
  return '<div class="card">'+(discP(p)?'<span class="dbadge"><bdi dir="ltr">-'+discP(p)+'%</bdi></span>':'')+'<button class="fav" type="button" data-fav="'+p.id+'" aria-pressed="'+fav+'" aria-label="'+t("favs")+'"><svg viewBox="0 0 24 24" fill="'+(fav?"currentColor":"none")+'" stroke="currentColor" stroke-width="2"><path d="M12 21s-8-5.2-8-11a4.6 4.6 0 0 1 8-3 4.6 4.6 0 0 1 8 3c0 5.8-8 11-8 11z"/></svg></button>'
   +'<button type="button" data-p="'+p.id+'" style="all:unset;cursor:pointer;display:flex;flex-direction:column;width:100%">'+pic(p,"pic")
-  +'<div class="body"><span class="name">'+esc(L(p,"name"))+'</span>'+(isFeat(p)?'<span class="ad">★ '+t("featured")+'</span>':'')+'<span class="from">'+esc(p.shops?p.shops.name:"")+'</span><span class="price">'+money(p.price_iqd)+oldTag(p)+'</span></div></button>'+(p.stock>0&&!(p.sizes&&p.sizes.length)?'<button class="qa" type="button" data-qadd="'+p.id+'" aria-label="'+t("add")+'"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="20" r="1.5"/><circle cx="18" cy="20" r="1.5"/><path d="M2 3h3l2.7 12.4a2 2 0 0 0 2 1.6h7.7a2 2 0 0 0 2-1.5L21 7H6"/></svg></button>':'')+'</div>';
+  +'<div class="body"><span class="name">'+esc(L(p,"name"))+'</span>'+(isFeat(p)?'<span class="ad">★ '+t("featured")+'</span>':'')+'<span class="from">'+esc(p.shops?p.shops.name:"")+'</span><span class="price">'+money(p.price_iqd)+oldTag(p)+'</span></div></button>'+'<button class="qa" type="button" '+(p.stock>0&&!(p.sizes&&p.sizes.length)?'data-qadd="':'data-p="')+p.id+'" aria-label="'+t("add")+'"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="20" r="1.5"/><circle cx="18" cy="20" r="1.5"/><path d="M2 3h3l2.7 12.4a2 2 0 0 0 2 1.6h7.7a2 2 0 0 0 2-1.5L21 7H6"/></svg></button></div>';
 }
 function sorted(list){var l=list.slice();if(S.sort==="1")l.sort(function(a,b){return a.price_iqd-b.price_iqd;});if(S.sort==="2")l.sort(function(a,b){return b.price_iqd-a.price_iqd;});return l;}
 function sortBar(title,n){return '<div class="bar"><h2 style="margin:0">'+esc(title)+' <span class="from">('+num(n)+')</span></h2><label style="flex-direction:row;align-items:center;gap:6px">'+t("sortBy")+'<select id="sort"><option value="0"'+(S.sort==="0"?" selected":"")+'>'+t("s0")+'</option><option value="1"'+(S.sort==="1"?" selected":"")+'>'+t("s1")+'</option><option value="2"'+(S.sort==="2"?" selected":"")+'>'+t("s2")+'</option></select></label></div>';}
@@ -2431,7 +2433,7 @@ function oldOf(id,price){var e=$(id),v=e?parseInt(e.value,10):NaN;return (!isNaN
 function discP(p){return (p.old_price_iqd&&p.old_price_iqd>p.price_iqd)?Math.round(100-p.price_iqd*100/p.old_price_iqd):0;}
 function oldTag(p,c){return discP(p)?'<span class="'+(c||"old")+'">'+money(p.old_price_iqd)+'</span>':'';}
 function hrow(title,list,all){if(!list.length)return "";
- return '<section><div class="hs2"><h2>'+title+'</h2>'+(all?'<button type="button" data-go="all">'+t("p42All")+'</button>':'')+'</div><div class="hs">'+list.map(function(p){return '<div class="hsi">'+card(p)+'</div>';}).join("")+'</div></section>';}
+ return '<section><div class="hs2"><h2>'+title+'</h2>'+(all?'<button type="button" data-go="all">'+t("p42All")+'</button>':'')+'</div><div class="hs'+(list.length<=2?' few':'')+'">'+list.map(function(p){return '<div class="hsi">'+card(p)+'</div>';}).join("")+'</div></section>';}
 function popList(){var m=S.sales||[];return m.map(function(r){return prod(r.product_id);}).filter(Boolean).slice(0,10);}
 function skelHome(){var c='<div class="skc"><div class="sk" style="aspect-ratio:1/1"></div><div style="padding:10px"><div class="sk" style="height:12px;margin-bottom:8px"></div><div class="sk" style="height:12px;width:60%;margin-bottom:10px"></div><div class="sk" style="height:16px;width:45%"></div></div></div>';
  return '<div class="sk" style="aspect-ratio:16/9;border-radius:18px"></div><div class="skg" style="grid-template-columns:repeat(4,1fr);margin:16px 0">'+[1,2,3,4].map(function(){return '<div class="sk" style="height:76px"></div>';}).join("")+'</div><div class="skg">'+c+c+c+c+'</div>';}
