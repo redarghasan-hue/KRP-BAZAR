@@ -111,6 +111,7 @@ nav button[aria-current="page"] svg{color:var(--accent)}
 .toast{position:fixed;inset-inline:0;bottom:calc(76px + env(safe-area-inset-bottom,0px));display:flex;justify-content:center;pointer-events:none;z-index:20}
 .toast span{background:var(--brand);color:var(--brand-ink);padding:9px 16px;border-radius:99px;font-size:14px}
 @media(prefers-reduced-motion:no-preference){.card,.cat{transition:transform .15s}.card:active,.cat:active{transform:scale(.98)}}
+.lnk{background:none;border:0;padding:0 4px;cursor:pointer;font-size:13px;opacity:.7}
 </style>
 <style>
 .lvbox{margin-top:8px;border:1px solid var(--line,#ddd);border-radius:12px;overflow:hidden}
@@ -642,7 +643,7 @@ function toast(msg){var el=$("toast");el.innerHTML='<span>'+esc(msg)+'</span>';c
 function go(h){if(location.hash==="#"+h)render();else location.hash=h;}
 function cartCount(){return S.cart.reduce(function(a,i){return a+i.qty;},0);}
 function keepScroll(){var y=window.scrollY;render();window.scrollTo(0,y);}
-function errText(e){var m=(e&&e.message)||"";if(/too many requests/.test(m))return t("p39Many");if(/video too big/.test(m))return t("p37Big");if(/video too long/.test(m))return t("p37Long");if(/video unreadable/.test(m))return t("p37Bad");if(/max banners/.test(m))return t("p36Max");if(/invite required/.test(m))return t("p33Invite");if(/city invalid/.test(m))return t("p33CityBad");if(/delivery price pending/.test(m))return t("p29Pend2");if(/unavailable item/.test(m))return t("unavailable");if(/missing fields/.test(m))return t("fillAll");if(/invalid phone/.test(m))return t("phoneBad");if(/terms required/.test(m))return t("mustAccept");if(/coupon own/.test(m))return t("cpOwn");if(/coupon expired/.test(m))return t("cpExpired");if(/coupon used/.test(m))return t("cpUsed");if(/coupon min/.test(m))return t("cpMin");if(/coupon first/.test(m))return t("cpFirst");if(/coupon invalid/.test(m))return t("cpInvalid");if(/rate limit/.test(m))return t("rateLimitMsg");if(/reason required/.test(m))return t("reasonNeeded");if(/invalid size/.test(m))return t("chooseSize");if(/account blocked/.test(m))return t("blockedMsg");if(/too many open/.test(m))return t("tooMany");if(/cannot cancel/.test(m))return t("cancelLate");return m||t("error");}
+function errText(e){var m=(e&&e.message)||"";if(/filtered/.test(m))return t("p58Filtered");if(/blocked/.test(m)&&!/account blocked/.test(m))return t("p58BlockedMsg");if(/too many requests/.test(m))return t("p39Many");if(/video too big/.test(m))return t("p37Big");if(/video too long/.test(m))return t("p37Long");if(/video unreadable/.test(m))return t("p37Bad");if(/max banners/.test(m))return t("p36Max");if(/invite required/.test(m))return t("p33Invite");if(/city invalid/.test(m))return t("p33CityBad");if(/delivery price pending/.test(m))return t("p29Pend2");if(/unavailable item/.test(m))return t("unavailable");if(/missing fields/.test(m))return t("fillAll");if(/invalid phone/.test(m))return t("phoneBad");if(/terms required/.test(m))return t("mustAccept");if(/coupon own/.test(m))return t("cpOwn");if(/coupon expired/.test(m))return t("cpExpired");if(/coupon used/.test(m))return t("cpUsed");if(/coupon min/.test(m))return t("cpMin");if(/coupon first/.test(m))return t("cpFirst");if(/coupon invalid/.test(m))return t("cpInvalid");if(/rate limit/.test(m))return t("rateLimitMsg");if(/reason required/.test(m))return t("reasonNeeded");if(/invalid size/.test(m))return t("chooseSize");if(/account blocked/.test(m))return t("blockedMsg");if(/too many open/.test(m))return t("tooMany");if(/cannot cancel/.test(m))return t("cancelLate");return m||t("error");}
 function needLogin(){S.authMsg=t("loginFirst");S.authMode="login";go("account");}
 
 /* ---------- Data ---------- */
@@ -1032,6 +1033,9 @@ async function loadAdmin(){
  S.adm={cust:pf.error?[]:(pf.data||[]),pay:po.error?[]:(po.data||[]),maxo:mx.data?mx.data.value:"3",shops:a.data||[],prods:b.data||[],items:c.data||[],def:d.data?d.data.value:"5",comp:(cm.data||[]),banners:(bn.data||[])};
  var cpn=await sb.from("coupons").select("*").order("created_at",{ascending:false});S.adm.coupons=cpn.error?[]:(cpn.data||[]);
  var rpt=await sb.from("reports").select("*,profiles(full_name,phone)").order("id",{ascending:false}).limit(200);S.adm.reports=rpt.error?[]:(rpt.data||[]);
+ var mids=S.adm.reports.filter(function(x){return x.kind==="message";}).map(function(x){return Number(x.target_id);}).filter(Boolean);S.adm.rmsg={};
+ if(mids.length){var mm=await sb.from("messages").select("id,body,sender_id,conversation_id").in("id",mids);(mm.data||[]).forEach(function(x){S.adm.rmsg[x.id]=x;});}
+ var bw=await sb.from("banned_words").select("word").order("word");S.adm.words=bw.error?[]:(bw.data||[]);
  var rqs=await sb.from("product_requests").select("*").order("id",{ascending:false}).limit(200);S.adm.reqs=rqs.error?[]:(rqs.data||[]);
  var inv=await sb.from("shop_invites").select("*").order("created_at",{ascending:false});S.adm.invites=inv.error?[]:(inv.data||[]);
  var sc2=await sb.from("shop_contacts").select("*");S.adm.sphone={};(sc2.data||[]).forEach(function(x){S.adm.sphone[x.shop_id]=x.phone;});
@@ -1230,6 +1234,10 @@ async function doAct(el){
   else{var ur=await sb.from("price_alerts").upsert({user_id:S.user.id,product_id:ap.id,price_iqd:ap.price_iqd},{onConflict:"user_id,product_id"});if(ur.error){toast(errText(ur.error));return;}S.alerts[ap.id]=ap.price_iqd;toast(t("p53AlertOn"));}
   keepScroll();return;}
  if(a==="rep"){if(!S.user)return needLogin();S.rep={kind:v,id:id};keepScroll();return;}
+ if(a==="blk"){var nb=!S.chat.blocked;var br=await sb.rpc("chat_block",{p_conv:id,p_on:nb});if(br.error){toast(errText(br.error));return;}S.chat.blocked=nb;toast(t(nb?"p58BlockedOk":"p58UnblockedOk"));keepScroll();return;}
+ if(a==="msgdel"){var dr=await sb.from("messages").delete().eq("id",v);if(dr.error){toast(errText(dr.error));return;}await upd("reports",{status:"done"},"id",id);await loadAdmin();toast(t("saved"));keepScroll();return;}
+ if(a==="bwadd"){var w=($("bw-in").value||"").trim().toLowerCase();if(w.length<2)return;var wr=await sb.from("banned_words").insert({word:w});if(wr.error){toast(errText(wr.error));return;}await loadAdmin();keepScroll();return;}
+ if(a==="bwdel"){await sb.from("banned_words").delete().eq("word",id);await loadAdmin();keepScroll();return;}
  if(a==="repx"){S.rep=null;keepScroll();return;}
  if(a==="repsend"){if(!S.rep||!S.user)return;var rn=$("rp-note").value.trim().slice(0,500);
   var rr=await sb.from("reports").insert({reporter_id:S.user.id,kind:S.rep.kind,target_id:String(S.rep.id),reason:$("rp-reason").value,note:rn||null});
@@ -1485,11 +1493,12 @@ function cartBar(){var n=S.user?cartCount():0;return n?'<button class="cartbar" 
 function dropRow(){var d=S.alerts?S.prods.filter(function(p){return S.alerts[p.id]!=null&&p.price_iqd<S.alerts[p.id];}):[];return d.length?hrow('📉 '+t("p53Drop"),d,false):'';}
 function salePanel(){var on=S.mine.some(function(p){return p.sale;});
  return '<div class="panel"><b>🏷 '+t("p53Sale")+'</b><div class="from">'+t("p53SaleHint")+'</div>'+(on?'<button class="btn ghost" type="button" data-act="saleend">'+t("p53SaleEnd")+'</button>':'<div class="row"><input class="f" id="sale-pct" type="number" inputmode="numeric" min="5" max="70" value="20" dir="ltr" style="max-width:90px"><button class="btn" type="button" data-act="salego">'+t("p53SaleGo")+'</button></div>')+'</div>';}
-function admReps(){var a=S.adm,r=a.reports||[];if(!r.length)return '<div class="panel"><div class="from">'+t("p53RepNone")+'</div></div>';
- return '<div class="panel">'+r.map(function(x){var pr=x.profiles||{},tg='';
-  if(x.kind==="product"){var p=a.prods.filter(function(y){return String(y.id)===x.target_id;})[0];tg=p?esc(L(p,"name")):'#'+esc(x.target_id);}else{var sh=a.shops.filter(function(y){return y.id===x.target_id;})[0];tg=sh?esc(sh.name):esc(x.target_id);}
-  return '<div class="order"><div class="sum"><b>'+(x.kind==="product"?'📦 ':'🏪 ')+tg+'</b><span class="pill">'+t("p53R_"+x.reason)+'</span></div><div class="from">'+esc(pr.full_name||"")+' · '+esc((x.created_at||"").slice(0,10))+(x.status==="done"?' · ✓':'')+'</div>'+(x.note?'<div>'+esc(x.note)+'</div>':'')
-  +'<div class="row" style="flex-wrap:wrap;gap:6px">'+(x.kind==="product"?'<button class="btn ghost" type="button" data-act="repgo" data-id="'+esc(x.target_id)+'">'+t("p53RepOpen")+'</button><button class="btn ghost" type="button" data-act="repoff" data-id="'+x.id+'" data-v="'+esc(x.target_id)+'">'+t("p53RepDeact")+'</button>':'<button class="btn ghost" type="button" data-act="ashop" data-id="'+esc(x.target_id)+'">'+t("p53RepOpen")+'</button>')
+function admWords(){var w=(S.adm&&S.adm.words)||[];return '<div class="panel"><b>🚫 '+t("p58Words")+'</b><div class="from">'+t("p58WordsHint")+'</div><div class="row"><input class="f" id="bw-in" maxlength="40"><button class="btn" type="button" data-act="bwadd">'+t("p58Add")+'</button></div><div class="row" style="flex-wrap:wrap;gap:6px">'+w.map(function(x){return '<button type="button" class="pill" data-act="bwdel" data-id="'+esc(x.word)+'">'+esc(x.word)+' ✕</button>';}).join("")+'</div></div>';}
+function admReps(){var a=S.adm,r=a.reports||[];if(!r.length)return '<div class="panel"><div class="from">'+t("p53RepNone")+'</div></div>'+admWords();
+ return admWords()+'<div class="panel">'+r.map(function(x){var pr=x.profiles||{},tg='';
+  if(x.kind==="message"){var mg=(a.rmsg||{})[x.target_id];tg=mg?esc(mg.body):'#'+esc(x.target_id);}else if(x.kind==="product"){var p=a.prods.filter(function(y){return String(y.id)===x.target_id;})[0];tg=p?esc(L(p,"name")):'#'+esc(x.target_id);}else{var sh=a.shops.filter(function(y){return y.id===x.target_id;})[0];tg=sh?esc(sh.name):esc(x.target_id);}
+  return '<div class="order"><div class="sum"><b>'+(x.kind==="message"?'💬 ':x.kind==="product"?'📦 ':'🏪 ')+tg+'</b><span class="pill">'+t("p53R_"+x.reason)+'</span></div><div class="from">'+esc(pr.full_name||"")+' · '+esc((x.created_at||"").slice(0,10))+(x.status==="done"?' · ✓':'')+'</div>'+(x.note?'<div>'+esc(x.note)+'</div>':'')
+  +'<div class="row" style="flex-wrap:wrap;gap:6px">'+(x.kind==="message"?'<button class="btn ghost" type="button" data-act="msgdel" data-id="'+x.id+'" data-v="'+esc(x.target_id)+'">'+t("p58DelMsg")+'</button>':x.kind==="product"?'<button class="btn ghost" type="button" data-act="repgo" data-id="'+esc(x.target_id)+'">'+t("p53RepOpen")+'</button><button class="btn ghost" type="button" data-act="repoff" data-id="'+x.id+'" data-v="'+esc(x.target_id)+'">'+t("p53RepDeact")+'</button>':'<button class="btn ghost" type="button" data-act="ashop" data-id="'+esc(x.target_id)+'">'+t("p53RepOpen")+'</button>')
   +(x.status!=="done"?'<button class="btn" type="button" data-act="repdone" data-id="'+x.id+'">'+t("p53RepDone")+'</button>':'')+'</div></div>';}).join("")+'</div>';}
 function shopLink(s){
  if(!s)return "";
@@ -1870,7 +1879,8 @@ function vChat(id){
  var c=(S.convs||[]).filter(function(x){return x.id===id;})[0];
  if(!c||!S.chat||S.chat.id!==id)return '<div class="empty">'+t("loading")+'</div>';
  return '<button class="crumb" type="button" data-go="chats">‹ '+t("chatT")+'</button><h1>'+esc(convTitle(c))+'</h1>'
-  +'<div class="panel"><div class="msgs" id="msgs">'+(S.chat.msgs.length?S.chat.msgs.map(function(m){var me=m.sender_id===S.user.id;return '<div class="bub'+(me?' me':'')+'">'+esc(m.body)+'<small>'+esc((m.created_at||"").slice(0,16).replace("T"," "))+'</small></div>';}).join(""):'<div class="from">'+t("noChats")+'</div>')+'</div></div>'
+  +'<div class="panel"><div class="msgs" id="msgs">'+(S.chat.msgs.length?S.chat.msgs.map(function(m){var me=m.sender_id===S.user.id;return '<div class="bub'+(me?' me':'')+'">'+esc(m.body)+'<small>'+esc((m.created_at||"").slice(0,16).replace("T"," "))+(me?'':' <button type="button" class="lnk" data-act="rep" data-id="'+m.id+'" data-v="message" aria-label="'+esc(t("p53Rep"))+'">🚩</button>')+'</small></div>'+(S.rep&&S.rep.kind==="message"&&String(S.rep.id)===String(m.id)?repForm():'');}).join(""):'<div class="from">'+t("noChats")+'</div>')+'</div></div>'
+  +(c.kind==="shop_customer"?'<div class="row"><button class="btn ghost" type="button" data-act="blk" data-id="'+id+'">'+(S.chat.blocked?'✅ '+t("p58Unblock"):'🚫 '+t("p58Block"))+'</button></div>':'')
   +'<form class="panel" id="msgform" novalidate><textarea class="f" id="m-body" rows="2" maxlength="1000" placeholder="'+esc(t("typeMsg"))+'"></textarea><button class="btn" type="submit">'+t("sendMsg")+'</button></form>';}
 function scrollMsgs(){var b=$("msgs");if(b)b.scrollTop=b.scrollHeight;}
 function stopChatPoll(){if(S.chatTimer){clearInterval(S.chatTimer);S.chatTimer=null;}}
@@ -1885,7 +1895,8 @@ async function pollChat(){
 async function openChat(id){
  await loadConvs();
  var r=await sb.from("messages").select("*").eq("conversation_id",id).order("id",{ascending:true}).limit(300);
- S.chat={id:id,msgs:r.error?[]:(r.data||[])};
+ S.chat={id:id,msgs:r.error?[]:(r.data||[]),blocked:false};
+ try{var bl=await sb.rpc("chat_blocked",{p_conv:id});S.chat.blocked=bl.data===true;}catch(e){}
  sb.rpc("chat_read",{p_conv:id}).then(function(){loadUnread().then(drawNav);});
  stopChatPoll();S.chatTimer=setInterval(pollChat,6000);}
 async function doSend(){
@@ -1893,7 +1904,7 @@ async function doSend(){
  S.sending=true;
  var r=await sb.from("messages").insert({conversation_id:S.chat.id,sender_id:S.user.id,body:b}).select().single();
  S.sending=false;
- if(r.error){toast(/rate limit/.test(r.error.message||"")?t("rateLimitMsg"):errText(r.error));return;}
+ if(r.error){toast(errText(r.error));return;}
  S.chat.msgs.push(r.data);keepScroll();scrollMsgs();}
 function chatBtn(sid){
  if(S.shop&&S.shop.id===sid)return "";
@@ -2773,6 +2784,11 @@ var T53={
   p53Rep:"سکاڵا",p53RepWhy:"هۆکار",p53RepNote:"وردەکاری (ئارەزوومەندانە)",p53RepSend:"ناردنی سکاڵا",p53RepThanks:"سوپاس، پێداچوونەوەی بۆ دەکەین",p53Reps:"سکاڵاکان",p53RepNone:"هیچ سکاڵایەک نییە",p53RepOpen:"کردنەوە",p53RepDeact:"ناچالاککردنی کاڵا",p53RepDone:"تەواو",
   p53R_fake:"ساختە یان لاساییکراوە",p53R_wrong:"زانیاری یان نرخی هەڵە",p53R_offensive:"ناوەڕۆکی نابەجێ",p53R_scam:"فێڵ",p53R_other:"هیتر"}};
 Object.keys(T53).forEach(function(k){Object.keys(T53[k]).forEach(function(x){T[k][x]=T53[k][x];});});
+var T58={
+ en:{p58Filtered:"This text contains a word that is not allowed.",p58BlockedMsg:"You cannot send messages in this chat.",p58Block:"Block this user",p58Unblock:"Unblock this user",p58BlockedOk:"User blocked",p58UnblockedOk:"User unblocked",p58Words:"Banned words",p58WordsHint:"Messages and products containing these words are rejected.",p58Add:"Add",p58DelMsg:"Delete message"},
+ ar:{p58Filtered:"يحتوي هذا النص على كلمة غير مسموح بها.",p58BlockedMsg:"لا يمكنك إرسال رسائل في هذه المحادثة.",p58Block:"حظر هذا المستخدم",p58Unblock:"إلغاء حظر هذا المستخدم",p58BlockedOk:"تم حظر المستخدم",p58UnblockedOk:"تم إلغاء الحظر",p58Words:"الكلمات المحظورة",p58WordsHint:"تُرفض الرسائل والمنتجات التي تحتوي على هذه الكلمات.",p58Add:"إضافة",p58DelMsg:"حذف الرسالة"},
+ ku:{p58Filtered:"ئەم دەقە وشەیەکی ڕێپێنەدراوی تێدایە.",p58BlockedMsg:"ناتوانیت لەم گفتوگۆیەدا پەیام بنێریت.",p58Block:"ئەم بەکارهێنەرە بلۆک بکە",p58Unblock:"بلۆکی ئەم بەکارهێنەرە لابە",p58BlockedOk:"بەکارهێنەر بلۆک کرا",p58UnblockedOk:"بلۆک لابرا",p58Words:"وشە قەدەغەکراوەکان",p58WordsHint:"پەیام و کاڵاکان کە ئەم وشانەیان تێدایە ڕەتدەکرێنەوە.",p58Add:"زیادکردن",p58DelMsg:"سڕینەوەی پەیام"}};
+Object.keys(T58).forEach(function(k){Object.keys(T58[k]).forEach(function(x){T[k][x]=T58[k][x];});});
 var T57={
  en:{p57Wel:"Welcome to KRP Bazar",p57WelSub:"Shop from local stores and pay on delivery",p57WelBtn:"Start shopping"},
  ar:{p57Wel:"أهلاً بك في KRP Bazar",p57WelSub:"تسوّق من المتاجر المحلية وادفع عند الاستلام",p57WelBtn:"ابدأ التسوق"},
