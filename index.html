@@ -331,6 +331,7 @@ nav button[aria-current="page"] svg{color:var(--accent)!important}
 nav div{grid-template-columns:repeat(5,1fr)}
 .tabs{display:grid;grid-template-columns:1fr 1fr;gap:6px}
 .tabs button{border:1px solid var(--line);background:var(--surface);border-radius:9px;padding:9px;font-weight:500}
+.tabs.sc{display:flex;overflow-x:auto;gap:6px;scrollbar-width:none;padding-bottom:2px;margin-bottom:10px}.tabs.sc::-webkit-scrollbar{display:none}.tabs.sc button{flex:0 0 auto;white-space:nowrap;padding:9px 14px;border-radius:999px}.accsw{position:sticky;top:0;z-index:5;margin:0 0 10px}
 .tabs button[aria-pressed="true"]{background:var(--brand);color:var(--brand-ink);border-color:var(--brand)}
 .order{border-top:1px solid var(--line);padding-top:10px;display:flex;flex-direction:column;gap:4px}
 .order:first-of-type{border-top:0;padding-top:0}
@@ -865,6 +866,9 @@ function vAccount(){
  }
  var pr=S.profile||{},role=pr.role||"customer";if(role!=="admin"&&S.shop)role="merchant";
  var staff=(role==="admin"||role==="merchant");
+ if(role==="admin"&&S.shop){var av=S.accv==="shop"?"shop":"admin";
+  return accHub(pr,role,staff)+'<div class="tabs accsw"><button type="button" data-act="accv" data-v="admin" aria-pressed="'+(av==="admin")+'">🛡 '+t("admin")+'</button><button type="button" data-act="accv" data-v="shop" aria-pressed="'+(av==="shop")+'">🏪 '+t("p59MyShop")+'</button></div>'+(av==="shop"?vShop():vAdmin());}
+ if(role==="admin")return accHub(pr,role,staff)+vAdmin();
  return accHub(pr,role,staff)+vShop()+vAdmin();
 }
 /* ---------- Router ---------- */
@@ -1052,7 +1056,7 @@ function earnCalc(items){var r={sales:0,comm:0,open:0};
  items.forEach(function(i){var a=i.unit_price_iqd*i.qty;
   if(i.status==="delivered"){r.sales+=a;r.comm+=commOf(i);}
   else if(i.status!=="cancelled")r.open+=a;});return r;}
-function tabs(list,cur,act){return '<div class="tabs" style="grid-template-columns:repeat('+Math.min(list.length,3)+',1fr)">'+list.map(function(x){return '<button type="button" data-act="'+act+'" data-v="'+x[0]+'" aria-pressed="'+(cur===x[0])+'">'+t(x[1])+(x[0]==="orders"&&S.newCnt?' ('+num(S.newCnt)+')':'')+(x[0]==="today"&&S.shop&&todayGroups().length?' ('+num(todayGroups().length)+')':'')+'</button>';}).join("")+'</div>';}
+function tabs(list,cur,act,sc){return '<div class="tabs'+(sc?' sc':'')+'" style="'+(sc?'':'grid-template-columns:repeat('+Math.min(list.length,3)+',1fr)')+'">'+list.map(function(x){return '<button type="button" data-act="'+act+'" data-v="'+x[0]+'" aria-pressed="'+(cur===x[0])+'">'+t(x[1])+(x[0]==="orders"&&S.newCnt?' ('+num(S.newCnt)+')':'')+(x[0]==="today"&&S.shop&&todayGroups().length?' ('+num(todayGroups().length)+')':'')+'</button>';}).join("")+'</div>';}
 function orderCards(items){
  if(!items.length)return '<div class="panel"><div class="from">'+t("noItems")+'</div></div>';
  return groupItems(items).map(function(g){var o=g[0].orders||{};
@@ -1173,7 +1177,7 @@ function mReqs(){
  return h+'<div class="panel">'+S.mreq.map(function(r){return '<div class="order"><div class="from">'+esc((r.created_at||"").slice(0,10))+'</div><div>'+esc(r.body)+'</div>'+(r.image_url?'<img src="'+esc(r.image_url)+'" alt="" style="max-width:140px;border-radius:8px">':'')+'</div>';}).join("")+'</div>';}
 function vAdmin(){
  if(!S.user||!S.profile||S.profile.role!=="admin"||!S.adm)return "";
- var a=S.adm,h='<section><h2>'+t("admin")+'</h2>'+tabs([["stats","statsT"],["shops","shopsT"],["aprod","products"],["aord","shopOrders"],["cust","customersT"],["settle","settleT"],["rev","reviewsT"],["cpn","couponsT"],["comp","complaintsT"],["req","p39Req"],["reps","p53Reps"],["banners","bannersT"],["set","settingsT"]],S.atab,"atab");
+ var a=S.adm,h='<section><h2>'+t("admin")+'</h2>'+tabs([["stats","statsT"],["shops","shopsT"],["aprod","products"],["aord","shopOrders"],["cust","customersT"],["settle","settleT"],["rev","reviewsT"],["cpn","couponsT"],["comp","complaintsT"],["req","p39Req"],["reps","p53Reps"],["banners","bannersT"],["set","settingsT"]],S.atab,"atab",true);
  if(S.atab==="shops"&&S.ashop){h+=admShop(S.ashop);}
  else if(S.atab==="shops"){
   var CM=compMap();
@@ -1289,6 +1293,7 @@ async function doAct(el){
  if(a==="login"){S.authMode="login";S.authErr="";S.authMsg="";render();return;}
  if(a==="star"){if(S.rate){var cc=$("r-comment");if(cc)S.rate.comment=cc.value;S.rate.rating=parseInt(v,10);}keepScroll();return;}
  if(a==="atab"){S.atab=v;keepScroll();return;}
+ if(a==="accv"){S.accv=v;keepScroll();return;}
  if(a==="statp"){S.statP=v;keepScroll();return;}
  if(a==="oauth"){var oa=await sb.auth.signInWithOAuth({provider:v,options:{redirectTo:location.origin+location.pathname,queryParams:{prompt:"select_account"}}});if(oa.error){S.authErr=errText(oa.error);render();}return;}
  if(a==="cedit"){S.cEd=(S.cEd===id)?null:id;keepScroll();return;}
@@ -2784,6 +2789,8 @@ var T53={
   p53Rep:"سکاڵا",p53RepWhy:"هۆکار",p53RepNote:"وردەکاری (ئارەزوومەندانە)",p53RepSend:"ناردنی سکاڵا",p53RepThanks:"سوپاس، پێداچوونەوەی بۆ دەکەین",p53Reps:"سکاڵاکان",p53RepNone:"هیچ سکاڵایەک نییە",p53RepOpen:"کردنەوە",p53RepDeact:"ناچالاککردنی کاڵا",p53RepDone:"تەواو",
   p53R_fake:"ساختە یان لاساییکراوە",p53R_wrong:"زانیاری یان نرخی هەڵە",p53R_offensive:"ناوەڕۆکی نابەجێ",p53R_scam:"فێڵ",p53R_other:"هیتر"}};
 Object.keys(T53).forEach(function(k){Object.keys(T53[k]).forEach(function(x){T[k][x]=T53[k][x];});});
+var T59={en:{p59MyShop:"My shop"},ar:{p59MyShop:"متجري"},ku:{p59MyShop:"فرۆشگاکەم"}};
+Object.keys(T59).forEach(function(k){Object.keys(T59[k]).forEach(function(x){T[k][x]=T59[k][x];});});
 var T58={
  en:{p58Filtered:"This text contains a word that is not allowed.",p58BlockedMsg:"You cannot send messages in this chat.",p58Block:"Block this user",p58Unblock:"Unblock this user",p58BlockedOk:"User blocked",p58UnblockedOk:"User unblocked",p58Words:"Banned words",p58WordsHint:"Messages and products containing these words are rejected.",p58Add:"Add",p58DelMsg:"Delete message"},
  ar:{p58Filtered:"يحتوي هذا النص على كلمة غير مسموح بها.",p58BlockedMsg:"لا يمكنك إرسال رسائل في هذه المحادثة.",p58Block:"حظر هذا المستخدم",p58Unblock:"إلغاء حظر هذا المستخدم",p58BlockedOk:"تم حظر المستخدم",p58UnblockedOk:"تم إلغاء الحظر",p58Words:"الكلمات المحظورة",p58WordsHint:"تُرفض الرسائل والمنتجات التي تحتوي على هذه الكلمات.",p58Add:"إضافة",p58DelMsg:"حذف الرسالة"},
